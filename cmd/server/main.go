@@ -12,6 +12,7 @@ import (
 	"mehndi-booking-backend/internal/config"
 	"mehndi-booking-backend/internal/database"
 	"mehndi-booking-backend/internal/router"
+	"mehndi-booking-backend/internal/user"
 )
 
 func main() {
@@ -33,7 +34,11 @@ func main() {
 	}
 	defer pool.Close()
 
-	r := router.NewRouter()
+	userRepo := user.NewRepository(pool)
+	userService := user.NewService(userRepo)
+	userHandler := user.NewHandler(userService)
+
+	r := router.NewRouter(userHandler)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.AppPort,
