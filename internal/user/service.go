@@ -7,11 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
-)
-
-const (
-	bcryptCost = 12
+	"mehndi-booking-backend/internal/auth"
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
@@ -45,9 +41,9 @@ func (s *Service) CreateUser(ctx context.Context, name, email, phone, passwordHa
 		return User{}, err
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(passwordHash), bcryptCost)
+	hashedPassword, err := auth.HashPassword(passwordHash)
 	if err != nil {
-		return User{}, fmt.Errorf("failed to hash password: %w", err)
+		return User{}, err
 	}
 
 	user := User{
