@@ -1,0 +1,57 @@
+package config
+
+import (
+	"log/slog"
+	"os"
+
+	"github.com/joho/godotenv"
+)
+
+type Config struct {
+	AppPort     string
+	DatabaseURL string
+	JWTSecret   string
+	FrontendURL string
+}
+
+func Load() (*Config, error) {
+	_ = godotenv.Load()
+
+	cfg := &Config{
+		AppPort:     getEnv("APP_PORT", "8080"),
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+		JWTSecret:   os.Getenv("JWT_SECRET"),
+		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"),
+	}
+
+	if cfg.DatabaseURL == "" {
+		slog.Error("DATABASE_URL is required")
+		return nil, ErrMissingDatabaseURL
+	}
+	if cfg.JWTSecret == "" {
+		slog.Error("JWT_SECRET is required")
+		return nil, ErrMissingJWTSecret
+	}
+
+	return cfg, nil
+}
+
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+var (
+	ErrMissingDatabaseURL = &ConfigError{Key: "DATABASE_URL"}
+	ErrMissingJWTSecret   = &ConfigError{Key: "JWT_SECRET"}
+)
+
+type ConfigError struct {
+	Key string
+}
+
+func (e *ConfigError) Error() string {
+	return "missing required configuration: " + e.Key
+}
