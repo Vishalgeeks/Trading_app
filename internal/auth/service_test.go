@@ -24,15 +24,16 @@ func (m *mockUserRepo) CreateUser(ctx context.Context, name, email, phone, passw
 		}
 	}
 	user := UserResult{
-		ID:        "mock-id",
-		Name:      name,
-		Email:     email,
-		Phone:     strPtr(phone),
-		Role:      role,
-		AvatarURL: avatarURL,
-		IsActive:  true,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:           "mock-id",
+		Name:         name,
+		Email:        email,
+		Phone:        strPtr(phone),
+		Role:         role,
+		AvatarURL:    avatarURL,
+		IsActive:     true,
+		PasswordHash: passwordHash,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 	m.users[email] = user
 	return user, nil
@@ -48,7 +49,7 @@ func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (UserRe
 
 func TestService_Register_Success(t *testing.T) {
 	repo := newMockUserRepo()
-	svc := NewService(repo)
+	svc := NewService(repo, "test-secret", 24)
 
 	resp, err := svc.Register(context.Background(), RegisterRequest{
 		Name:     "John Doe",
@@ -65,7 +66,7 @@ func TestService_Register_Success(t *testing.T) {
 
 func TestService_Register_DuplicateEmail(t *testing.T) {
 	repo := newMockUserRepo()
-	svc := NewService(repo)
+	svc := NewService(repo, "test-secret", 24)
 
 	_, err := svc.Register(context.Background(), RegisterRequest{
 		Name:     "John Doe",
@@ -87,7 +88,7 @@ func TestService_Register_DuplicateEmail(t *testing.T) {
 
 func TestService_Register_InvalidEmail(t *testing.T) {
 	repo := newMockUserRepo()
-	svc := NewService(repo)
+	svc := NewService(repo, "test-secret", 24)
 
 	_, err := svc.Register(context.Background(), RegisterRequest{
 		Name:     "John Doe",
@@ -100,7 +101,7 @@ func TestService_Register_InvalidEmail(t *testing.T) {
 
 func TestService_Register_MissingName(t *testing.T) {
 	repo := newMockUserRepo()
-	svc := NewService(repo)
+	svc := NewService(repo, "test-secret", 24)
 
 	_, err := svc.Register(context.Background(), RegisterRequest{
 		Email:    "john@example.com",
@@ -111,7 +112,7 @@ func TestService_Register_MissingName(t *testing.T) {
 
 func TestService_Register_MissingPassword(t *testing.T) {
 	repo := newMockUserRepo()
-	svc := NewService(repo)
+	svc := NewService(repo, "test-secret", 24)
 
 	_, err := svc.Register(context.Background(), RegisterRequest{
 		Name:  "John Doe",
@@ -122,7 +123,7 @@ func TestService_Register_MissingPassword(t *testing.T) {
 
 func TestService_Register_ShortPassword(t *testing.T) {
 	repo := newMockUserRepo()
-	svc := NewService(repo)
+	svc := NewService(repo, "test-secret", 24)
 
 	_, err := svc.Register(context.Background(), RegisterRequest{
 		Name:     "John Doe",
@@ -134,7 +135,7 @@ func TestService_Register_ShortPassword(t *testing.T) {
 
 func TestService_Register_IgnoresRole(t *testing.T) {
 	repo := newMockUserRepo()
-	svc := NewService(repo)
+	svc := NewService(repo, "test-secret", 24)
 
 	resp, err := svc.Register(context.Background(), RegisterRequest{
 		Name:     "John Doe",
@@ -143,4 +144,84 @@ func TestService_Register_IgnoresRole(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "CLIENT", resp.Role)
+}
+
+func TestService_Login_Success(t *testing.T) {
+	repo := newMockUserRepo()
+	svc := NewService(repo, "test-secret", 24)
+
+	hashedPassword, _ := HashPassword("hashed-password")
+	_, _ = repo.CreateUser(context.Background(), "John Doe", "john@example.com", "+919876543210", hashedPassword, "CLIENT", nil)
+
+	resp, err := svc.Login(context.Background(), LoginRequest{
+		Email:    "john@example.com",
+		Password: "hashed-password",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Bearer", resp.TokenType)
+	require.Equal(t, 24*3600, resp.ExpiresIn)
+	require.NotEmpty(t, resp.AccessToken)
+	require.Equal(t, "John Doe", resp.User.Name)
+	require.Equal(t, "CLIENT", resp.User.Role)
+}
+
+func TestService_Login_WrongPassword(t *testing.T) {
+	repo := newMockUserRepo()
+	svc := NewService(repo, "test-secret", 24)
+
+	hashedPassword, _ := HashPassword("hashed-password")
+	_, _ = repo.CreateUser(context.Background(), "John Doe", "john@example.com", "+919876543210", hashedPassword, "CLIENT", nil)
+
+	_, err := svc.Login(context.Background(), LoginRequest{
+		Email:    "john@example.com",
+		Password: "wrong-password",
+	})
+	require.ErrorIs(t, err, ErrInvalidCredentials)
+}
+
+func TestService_Login_NonexistentEmail(t *testing.T) {
+	repo := newMockUserRepo()
+	svc := NewService(repo, "test-secret", 24)
+
+	_, err := svc.Login(context.Background(), LoginRequest{
+		Email:    "nonexistent@example.com",
+		Password: "password",
+	})
+	require.ErrorIs(t, err, ErrInvalidCredentials)
+}
+
+func TestService_Login_InactiveUser(t *testing.T) {
+	repo := newMockUserRepo()
+	svc := NewService(repo, "test-secret", 24)
+
+	hashedPassword, _ := HashPassword("hashed-password")
+	user, _ := repo.CreateUser(context.Background(), "John Doe", "john@example.com", "+919876543210", hashedPassword, "CLIENT", nil)
+	user.IsActive = false
+	repo.users[user.Email] = user
+
+	_, err := svc.Login(context.Background(), LoginRequest{
+		Email:    "john@example.com",
+		Password: "hashed-password",
+	})
+	require.ErrorIs(t, err, ErrInactiveUser)
+}
+
+func TestService_Login_MissingEmail(t *testing.T) {
+	repo := newMockUserRepo()
+	svc := NewService(repo, "test-secret", 24)
+
+	_, err := svc.Login(context.Background(), LoginRequest{
+		Password: "password",
+	})
+	require.ErrorIs(t, err, ErrMissingEmail)
+}
+
+func TestService_Login_MissingPassword(t *testing.T) {
+	repo := newMockUserRepo()
+	svc := NewService(repo, "test-secret", 24)
+
+	_, err := svc.Login(context.Background(), LoginRequest{
+		Email: "john@example.com",
+	})
+	require.ErrorIs(t, err, ErrMissingPassword)
 }

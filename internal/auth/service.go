@@ -4,14 +4,20 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	ErrMissingName      = fmt.Errorf("name is required")
-	ErrMissingEmail     = fmt.Errorf("email is required")
-	ErrInvalidEmail     = fmt.Errorf("invalid email format")
-	ErrMissingPassword  = fmt.Errorf("password is required")
-	ErrPasswordTooShort = fmt.Errorf("password must be at least 8 characters")
+	ErrMissingName        = fmt.Errorf("name is required")
+	ErrMissingEmail       = fmt.Errorf("email is required")
+	ErrInvalidEmail       = fmt.Errorf("invalid email format")
+	ErrMissingPassword    = fmt.Errorf("password is required")
+	ErrPasswordTooShort   = fmt.Errorf("password must be at least 8 characters")
+	ErrInvalidCredentials = fmt.Errorf("invalid email or password")
+	ErrInactiveUser       = fmt.Errorf("user account is inactive")
 )
 
 type UserCreator interface {
@@ -20,11 +26,17 @@ type UserCreator interface {
 }
 
 type Service struct {
-	userRepo UserCreator
+	userRepo         UserCreator
+	jwtSecret        string
+	tokenExpiryHours int
 }
 
-func NewService(userRepo UserCreator) *Service {
-	return &Service{userRepo: userRepo}
+func NewService(userRepo UserCreator, jwtSecret string, tokenExpiryHours int) *Service {
+	return &Service{
+		userRepo:         userRepo,
+		jwtSecret:        jwtSecret,
+		tokenExpiryHours: tokenExpiryHours,
+	}
 }
 
 func (s *Service) Register(ctx context.Context, req RegisterRequest) (RegisterResponse, error) {
@@ -65,6 +77,60 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (RegisterRe
 	}
 
 	return createdUser.ToResponse(), nil
+}
+
+func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, error) {
+	if strings.TrimSpace(req.Email) == "" {
+		return LoginResponse{}, ErrMissingEmail
+	}
+	if req.Password == "" {
+		return LoginResponse{}, ErrMissingPassword
+	}
+
+	normalizedEmail := strings.ToLower(strings.TrimSpace(req.Email))
+
+	user, err := s.userRepo.GetUserByEmail(ctx, normalizedEmail)
+	if err != nil {
+		return LoginResponse{}, ErrInvalidCredentials
+	}
+
+	if !user.IsActive {
+		return LoginResponse{}, ErrInactiveUser
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		return LoginResponse{}, ErrInvalidCredentials
+	}
+
+	token, err := s.generateJWT(user)
+	if err != nil {
+		return LoginResponse{}, fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return LoginResponse{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		ExpiresIn:   s.tokenExpiryHours * 3600,
+		User:        user.ToResponse(),
+	}, nil
+}
+
+func (s *Service) generateJWT(user UserResult) (string, error) {
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"sub":  user.ID,
+		"role": user.Role,
+		"iat":  now.Unix(),
+		"exp":  now.Add(time.Duration(s.tokenExpiryHours) * time.Hour).Unix(),
+		"jti":  generateJTI(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.jwtSecret))
+}
+
+func generateJTI() string {
+	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
 func isValidEmail(email string) bool {

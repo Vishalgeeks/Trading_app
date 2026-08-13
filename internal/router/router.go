@@ -18,6 +18,7 @@ func NewRouter(userHandler *user.Handler, authHandler *auth.Handler) *mux.Router
 	r.HandleFunc("/api/users/{id}", userHandler.UpdateUserProfile).Methods("PATCH")
 
 	r.HandleFunc("/api/auth/register", authHandler.Register).Methods("POST")
+	r.HandleFunc("/api/auth/login", authHandler.Login).Methods("POST")
 
 	cors := middleware.NewCORS()
 	r.Use(cors.Handler)

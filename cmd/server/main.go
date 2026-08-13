@@ -52,15 +52,16 @@ func (a *userRepoAdapter) GetUserByEmail(ctx context.Context, email string) (aut
 		return auth.UserResult{}, err
 	}
 	return auth.UserResult{
-		ID:        u.ID,
-		Name:      u.Name,
-		Email:     u.Email,
-		Phone:     u.Phone,
-		Role:      string(u.Role),
-		AvatarURL: u.AvatarURL,
-		IsActive:  u.IsActive,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		ID:           u.ID,
+		Name:         u.Name,
+		Email:        u.Email,
+		Phone:        u.Phone,
+		Role:         string(u.Role),
+		AvatarURL:    u.AvatarURL,
+		IsActive:     u.IsActive,
+		PasswordHash: u.PasswordHash,
+		CreatedAt:    u.CreatedAt,
+		UpdatedAt:    u.UpdatedAt,
 	}, nil
 }
 
@@ -95,7 +96,7 @@ func main() {
 	userHandler := user.NewHandler(userService)
 
 	authRepo := &userRepoAdapter{repo: userRepo}
-	authService := auth.NewService(authRepo)
+	authService := auth.NewService(authRepo, cfg.JWTSecret, cfg.TokenExpiryHours)
 	authHandler := auth.NewHandler(authService)
 
 	r := router.NewRouter(userHandler, authHandler)

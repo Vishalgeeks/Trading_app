@@ -27,15 +27,16 @@ type RegisterResponse struct {
 }
 
 type UserResult struct {
-	ID        string
-	Name      string
-	Email     string
-	Phone     *string
-	Role      string
-	AvatarURL *string
-	IsActive  bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID           string
+	Name         string
+	Email        string
+	Phone        *string
+	Role         string
+	AvatarURL    *string
+	IsActive     bool
+	PasswordHash string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 func (u UserResult) ToResponse() RegisterResponse {
@@ -50,4 +51,16 @@ func (u UserResult) ToResponse() RegisterResponse {
 		CreatedAt: u.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: u.UpdatedAt.Format(time.RFC3339),
 	}
+}
+
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	AccessToken string           `json:"access_token"`
+	TokenType   string           `json:"token_type"`
+	ExpiresIn   int              `json:"expires_in"`
+	User        RegisterResponse `json:"user"`
 }
