@@ -9,11 +9,67 @@ import (
 	"syscall"
 	"time"
 
+	"mehndi-booking-backend/internal/auth"
 	"mehndi-booking-backend/internal/config"
 	"mehndi-booking-backend/internal/database"
 	"mehndi-booking-backend/internal/router"
 	"mehndi-booking-backend/internal/user"
 )
+
+type userRepoAdapter struct {
+	repo *user.Repository
+}
+
+func (a *userRepoAdapter) CreateUser(ctx context.Context, name, email, phone, passwordHash, role string, avatarURL *string) (auth.UserResult, error) {
+	u, err := a.repo.CreateUser(ctx, user.User{
+		Name:         name,
+		Email:        email,
+		Phone:        strPtr(phone),
+		PasswordHash: passwordHash,
+		Role:         user.Role(role),
+		AvatarURL:    avatarURL,
+		IsActive:     true,
+	})
+	if err != nil {
+		return auth.UserResult{}, err
+	}
+	return auth.UserResult{
+		ID:        u.ID,
+		Name:      u.Name,
+		Email:     u.Email,
+		Phone:     u.Phone,
+		Role:      string(u.Role),
+		AvatarURL: u.AvatarURL,
+		IsActive:  u.IsActive,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}, nil
+}
+
+func (a *userRepoAdapter) GetUserByEmail(ctx context.Context, email string) (auth.UserResult, error) {
+	u, err := a.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return auth.UserResult{}, err
+	}
+	return auth.UserResult{
+		ID:        u.ID,
+		Name:      u.Name,
+		Email:     u.Email,
+		Phone:     u.Phone,
+		Role:      string(u.Role),
+		AvatarURL: u.AvatarURL,
+		IsActive:  u.IsActive,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}, nil
+}
+
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -38,7 +94,11 @@ func main() {
 	userService := user.NewService(userRepo)
 	userHandler := user.NewHandler(userService)
 
-	r := router.NewRouter(userHandler)
+	authRepo := &userRepoAdapter{repo: userRepo}
+	authService := auth.NewService(authRepo)
+	authHandler := auth.NewHandler(authService)
+
+	r := router.NewRouter(userHandler, authHandler)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.AppPort,
