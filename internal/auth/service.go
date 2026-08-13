@@ -18,11 +18,14 @@ var (
 	ErrPasswordTooShort   = fmt.Errorf("password must be at least 8 characters")
 	ErrInvalidCredentials = fmt.Errorf("invalid email or password")
 	ErrInactiveUser       = fmt.Errorf("user account is inactive")
+	ErrUserNotFound       = fmt.Errorf("user not found")
 )
 
 type UserCreator interface {
 	CreateUser(ctx context.Context, name, email, phone, passwordHash, role string, avatarURL *string) (UserResult, error)
 	GetUserByEmail(ctx context.Context, email string) (UserResult, error)
+	GetUserByID(ctx context.Context, id string) (UserResult, error)
+	UpdateUserPassword(ctx context.Context, userID, newPasswordHash string) error
 }
 
 type Service struct {
@@ -113,6 +116,62 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, e
 		ExpiresIn:   s.tokenExpiryHours * 3600,
 		User:        user.ToResponse(),
 	}, nil
+}
+
+func (s *Service) GetCurrentUser(ctx context.Context, userID string) (RegisterResponse, error) {
+	if strings.TrimSpace(userID) == "" {
+		return RegisterResponse{}, fmt.Errorf("invalid user id")
+	}
+
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return RegisterResponse{}, ErrUserNotFound
+	}
+
+	if !user.IsActive {
+		return RegisterResponse{}, ErrInactiveUser
+	}
+
+	return user.ToResponse(), nil
+}
+
+func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	if strings.TrimSpace(userID) == "" {
+		return fmt.Errorf("invalid user id")
+	}
+	if currentPassword == "" {
+		return ErrMissingPassword
+	}
+	if newPassword == "" {
+		return ErrMissingPassword
+	}
+	if len(newPassword) < 8 {
+		return ErrPasswordTooShort
+	}
+
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if !user.IsActive {
+		return ErrInactiveUser
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return ErrInvalidCredentials
+	}
+
+	hashedNewPassword, err := HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	return s.userRepo.UpdateUserPassword(ctx, userID, hashedNewPassword)
+}
+
+func (s *Service) Logout(ctx context.Context) error {
+	return nil
 }
 
 func (s *Service) generateJWT(user UserResult) (string, error) {

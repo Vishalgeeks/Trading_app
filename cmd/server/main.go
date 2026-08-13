@@ -12,6 +12,7 @@ import (
 	"mehndi-booking-backend/internal/auth"
 	"mehndi-booking-backend/internal/config"
 	"mehndi-booking-backend/internal/database"
+	"mehndi-booking-backend/internal/middleware"
 	"mehndi-booking-backend/internal/router"
 	"mehndi-booking-backend/internal/user"
 )
@@ -65,6 +66,29 @@ func (a *userRepoAdapter) GetUserByEmail(ctx context.Context, email string) (aut
 	}, nil
 }
 
+func (a *userRepoAdapter) GetUserByID(ctx context.Context, id string) (auth.UserResult, error) {
+	u, err := a.repo.GetUserByID(ctx, id)
+	if err != nil {
+		return auth.UserResult{}, err
+	}
+	return auth.UserResult{
+		ID:           u.ID,
+		Name:         u.Name,
+		Email:        u.Email,
+		Phone:        u.Phone,
+		Role:         string(u.Role),
+		AvatarURL:    u.AvatarURL,
+		IsActive:     u.IsActive,
+		PasswordHash: u.PasswordHash,
+		CreatedAt:    u.CreatedAt,
+		UpdatedAt:    u.UpdatedAt,
+	}, nil
+}
+
+func (a *userRepoAdapter) UpdateUserPassword(ctx context.Context, userID, newPasswordHash string) error {
+	return a.repo.UpdateUserPassword(ctx, userID, newPasswordHash)
+}
+
 func strPtr(s string) *string {
 	if s == "" {
 		return nil
@@ -98,6 +122,8 @@ func main() {
 	authRepo := &userRepoAdapter{repo: userRepo}
 	authService := auth.NewService(authRepo, cfg.JWTSecret, cfg.TokenExpiryHours)
 	authHandler := auth.NewHandler(authService)
+
+	middleware.SetJWTSecret(cfg.JWTSecret)
 
 	r := router.NewRouter(userHandler, authHandler)
 

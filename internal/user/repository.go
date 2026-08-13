@@ -131,6 +131,21 @@ func (r *Repository) UpdateUserProfile(ctx context.Context, id string, req Updat
 	return user, nil
 }
 
+func (r *Repository) UpdateUserPassword(ctx context.Context, id string, passwordHash string) error {
+	query := `UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1`
+
+	result, err := r.pool.Exec(ctx, query, id, passwordHash)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
+}
+
 func (r *Repository) DeactivateUser(ctx context.Context, id string) error {
 	query := `UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1`
 

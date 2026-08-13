@@ -47,6 +47,27 @@ func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (UserRe
 	return u, nil
 }
 
+func (m *mockUserRepo) GetUserByID(ctx context.Context, id string) (UserResult, error) {
+	for _, u := range m.users {
+		if u.ID == id {
+			return u, nil
+		}
+	}
+	return UserResult{}, errors.New("user not found")
+}
+
+func (m *mockUserRepo) UpdateUserPassword(ctx context.Context, userID, newPasswordHash string) error {
+	for email, u := range m.users {
+		if u.ID == userID {
+			u.PasswordHash = newPasswordHash
+			u.UpdatedAt = time.Now()
+			m.users[email] = u
+			return nil
+		}
+	}
+	return errors.New("user not found")
+}
+
 func TestService_Register_Success(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewService(repo, "test-secret", 24)

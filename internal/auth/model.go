@@ -64,3 +64,16 @@ type LoginResponse struct {
 	ExpiresIn   int              `json:"expires_in"`
 	User        RegisterResponse `json:"user"`
 }
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+type ChangePasswordResponse struct {
+	Message string `json:"message"`
+}
+
+type LogoutResponse struct {
+	Message string `json:"message"`
+}
