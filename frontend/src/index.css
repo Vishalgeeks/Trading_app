@@ -1,29 +1,76 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --color-primary: #f43f5e;
     --color-primary-dark: #e11d48;
+    --color-primary-light: #ffe4e6;
     --color-secondary: #fbbf24;
+    --color-secondary-light: #fef3c7;
+    --color-accent: #f97316;
     --color-background: #fff1f2;
     --color-surface: #ffffff;
+    --color-surface-alt: #fef2f2;
     --color-text: #1f2937;
     --color-text-light: #6b7280;
+    --color-text-muted: #9ca3af;
+    --color-border: #fecdd3;
+  }
+
+  .dark {
+    --color-primary: #f97316;
+    --color-primary-dark: #ea580c;
+    --color-primary-light: #431407;
+    --color-secondary: #fbbf24;
+    --color-secondary-light: #451a03;
+    --color-accent: #f97316;
+    --color-background: #0a0a0a;
+    --color-surface: #171717;
+    --color-surface-alt: #1f1f1f;
+    --color-text: #fafafa;
+    --color-text-light: #a3a3a3;
+    --color-text-muted: #737373;
+    --color-border: #262626;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-rose-500 hover:bg-rose-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-rose-500 hover:bg-rose-600 text-white font-medium py-3 px-6 rounded-xl transition-colors duration-200 inline-flex items-center justify-center gap-2;
   }
+
+  .dark .btn-primary {
+    @apply bg-orange-500 hover:bg-orange-600;
+  }
+
   .btn-secondary {
-    @apply bg-amber-400 hover:bg-amber-500 text-gray-900 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-amber-400 hover:bg-amber-500 text-gray-900 font-medium py-3 px-6 rounded-xl transition-colors duration-200 inline-flex items-center justify-center gap-2;
   }
+
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    @apply bg-white rounded-2xl border border-rose-100 shadow-sm p-4;
   }
+
+  .dark .card {
+    @apply bg-neutral-900 border-neutral-800;
+  }
+
   .input-field {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none transition-all duration-200;
+    @apply w-full px-4 py-3 bg-white border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900;
+  }
+
+  .dark .input-field {
+    @apply bg-neutral-800 border-neutral-700 text-white placeholder-neutral-500;
+  }
+
+  .section-title {
+    @apply text-xl font-bold text-gray-900 mb-4;
+  }
+
+  .dark .section-title {
+    @apply text-white;
   }
 }
 
@@ -32,4 +79,9 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--color-background);
   color: var(--color-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
 }

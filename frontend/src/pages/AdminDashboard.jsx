@@ -1,74 +1,60 @@
-import { useState, useEffect } from 'react';
-import { api } from '../services/api';
-import PageContainer from '../components/PageContainer';
+import { mockAdminBookings } from '../mockData';
+import StatCard from '../components/admin/StatCard';
+import AppointmentCard from '../components/admin/AppointmentCard';
+import {
+  CalendarCheck,
+  Clock,
+  TrendingUp,
+} from 'lucide-react';
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Please login to view admin dashboard');
-      setLoading(false);
-      return;
-    }
-
-    const result = await api.get('/admin/bookings/stats');
-    if (result.error) {
-      setError(result.message);
-    } else {
-      setStats(result.data);
-    }
-    setLoading(false);
+  const stats = {
+    total: mockAdminBookings.length,
+    pending: mockAdminBookings.filter((b) => b.status === 'PENDING').length,
+    confirmed: mockAdminBookings.filter((b) => b.status === 'CONFIRMED').length,
+    completed: mockAdminBookings.filter((b) => b.status === 'COMPLETED').length,
+    cancelled: mockAdminBookings.filter((b) => b.status === 'CANCELLED').length,
+    upcoming: mockAdminBookings.filter((b) => b.status === 'CONFIRMED' || b.status === 'PENDING').length,
   };
 
-  if (loading) {
-    return (
-      <PageContainer title="Admin Dashboard">
-        <div className="text-center py-12">
-          <p className="text-gray-500">Loading dashboard...</p>
-        </div>
-      </PageContainer>
-    );
-  }
-
-  if (error) {
-    return (
-      <PageContainer title="Admin Dashboard">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      </PageContainer>
-    );
-  }
-
-  const statCards = [
-    { label: 'Total Bookings', value: stats?.total || 0, color: 'bg-blue-500' },
-    { label: 'Pending', value: stats?.pending || 0, color: 'bg-yellow-500' },
-    { label: 'Confirmed', value: stats?.confirmed || 0, color: 'bg-green-500' },
-    { label: 'Completed', value: stats?.completed || 0, color: 'bg-purple-500' },
-    { label: 'Cancelled', value: stats?.cancelled || 0, color: 'bg-red-500' },
-    { label: 'Upcoming', value: stats?.upcoming || 0, color: 'bg-rose-500' },
-  ];
+  const upcomingAppointments = mockAdminBookings
+    .filter((b) => b.status === 'CONFIRMED' || b.status === 'PENDING')
+    .slice(0, 3);
 
   return (
-    <PageContainer title="Admin Dashboard">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {statCards.map((card) => (
-          <div key={card.label} className="card">
-            <div className={`${card.color} text-white rounded-lg p-4 mb-3`}>
-              <p className="text-3xl font-bold">{card.value}</p>
-            </div>
-            <p className="text-gray-600 font-medium">{card.label}</p>
-          </div>
-        ))}
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Dashboard</h1>
+        <p className="text-sm text-gray-500 dark:text-neutral-400">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
       </div>
-    </PageContainer>
+
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        <StatCard label="Total Bookings" value={stats.total} color="orange" icon={CalendarCheck} />
+        <StatCard label="Upcoming" value={stats.upcoming} color="blue" icon={Clock} />
+        <StatCard label="Confirmed" value={stats.confirmed} color="green" icon={TrendingUp} />
+        <StatCard label="Completed" value={stats.completed} color="purple" icon={CalendarCheck} />
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Today's Appointments</h2>
+          <span className="text-xs text-gray-500 dark:text-neutral-400">
+            {upcomingAppointments.length} scheduled
+          </span>
+        </div>
+        <div className="space-y-3">
+          {upcomingAppointments.map((appointment) => (
+            <AppointmentCard key={appointment.id} appointment={appointment} />
+          ))}
+        </div>
+        {upcomingAppointments.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500 dark:text-neutral-400 text-sm">No upcoming appointments today.</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

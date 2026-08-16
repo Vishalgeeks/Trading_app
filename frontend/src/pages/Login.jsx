@@ -1,70 +1,87 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { api } from '../services/api';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import Button from '../components/ui/Button';
 
 export default function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    const result = await api.post('/auth/login', formData);
+    const result = await login(formData.email, formData.password);
     if (result.error) {
-      setError(result.message);
+      setError(result.message || 'Login failed');
       setLoading(false);
       return;
     }
 
-    localStorage.setItem('token', result.data.token);
-    window.location.href = '/bookings';
+    const user = result.user;
+    if (user.role === 'ADMIN') {
+      navigate('/admin');
+    } else {
+      navigate('/bookings');
+    }
   };
 
   return (
-    <div className="max-w-md mx-auto">
-      <div className="card">
-        <h2 className="text-2xl font-bold text-center mb-6">Login</h2>
-        
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-            {error}
-          </div>
-        )}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black px-5">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-rose-500 dark:text-orange-500 mb-2">Henna Booking</h1>
+          <p className="text-sm text-gray-500 dark:text-neutral-400">Welcome back! Sign in to continue.</p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              className="input-field"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-          </div>
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-rose-100 dark:border-neutral-800 p-6 shadow-sm">
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-4 text-sm">
+              {error}
+            </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              className="input-field"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1.5">Email</label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-rose-200 dark:border-neutral-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none"
+                placeholder="you@example.com"
+              />
+            </div>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full">
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1.5">Password</label>
+              <input
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-rose-200 dark:border-neutral-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none"
+                placeholder="••••••••"
+              />
+            </div>
 
-        <p className="text-center mt-4 text-gray-600">
-          Don't have an account? <Link to="/register" className="text-rose-500 hover:text-rose-600">Register</Link>
-        </p>
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Button>
+          </form>
+
+          <p className="text-center mt-6 text-sm text-gray-600 dark:text-neutral-400">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-rose-500 dark:text-orange-400 font-medium hover:underline">
+              Sign up
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

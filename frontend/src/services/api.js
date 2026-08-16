@@ -1,11 +1,22 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
+function getAuthHeaders() {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      Authorization: `Bearer ${token}`,
+    };
+  }
+  return {};
+}
+
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   const config = {
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
       ...options.headers,
     },
     ...options,
@@ -31,7 +42,7 @@ async function request(endpoint, options = {}) {
     }
 
     return { error: false, status: response.status, data };
-  } catch (err) {
+  } catch {
     return {
       error: true,
       status: 0,

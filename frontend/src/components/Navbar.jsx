@@ -1,9 +1,17 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const location = useLocation();
-  
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
   const isActive = (path) => location.pathname === path ? 'text-rose-600 font-semibold' : 'text-gray-600 hover:text-rose-500';
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-100">
@@ -18,8 +26,24 @@ export default function Navbar() {
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/" className={isActive('/')}>Home</Link>
             <Link to="/designs" className={isActive('/designs')}>Designs</Link>
-            <Link to="/bookings" className={isActive('/bookings')}>Bookings</Link>
-            <Link to="/login" className={isActive('/login')}>Login</Link>
+            {isAuthenticated && (
+              <>
+                <Link to="/bookings" className={isActive('/bookings')}>Bookings</Link>
+                {user?.role === 'ADMIN' && (
+                  <Link to="/admin" className={isActive('/admin')}>Admin</Link>
+                )}
+                <span className="text-gray-600">{user?.name}</span>
+                <button onClick={handleLogout} className="text-gray-600 hover:text-rose-500">
+                  Logout
+                </button>
+              </>
+            )}
+            {!isAuthenticated && (
+              <>
+                <Link to="/login" className={isActive('/login')}>Login</Link>
+                <Link to="/register" className={isActive('/register')}>Register</Link>
+              </>
+            )}
           </div>
 
           <div className="md:hidden flex items-center">

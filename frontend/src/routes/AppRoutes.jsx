@@ -1,23 +1,81 @@
 import { createBrowserRouter } from 'react-router-dom';
-import MainLayout from '../layouts/MainLayout';
+import ClientLayout from '../layouts/ClientLayout';
+import AdminLayout from '../layouts/AdminLayout';
 import Home from '../pages/Home';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
-import Designs from '../pages/Designs';
+import Browse from '../pages/Browse';
+import DesignDetails from '../pages/DesignDetails';
+import Favorites from '../pages/Favorites';
 import Bookings from '../pages/Bookings';
+import BookingDetails from '../pages/BookingDetails';
+import Profile from '../pages/Profile';
+import Settings from '../pages/Settings';
+import AdminBookings from '../pages/AdminBookings';
+import AdminDesigns from '../pages/AdminDesigns';
+import AdminAvailability from '../pages/AdminAvailability';
 import AdminDashboard from '../pages/AdminDashboard';
+import ProtectedRoute from './ProtectedRoute';
+import AdminRoute from './AdminRoute';
 
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <MainLayout />,
+    element: <ClientLayout />,
     children: [
       { index: true, element: <Home /> },
       { path: 'login', element: <Login /> },
       { path: 'register', element: <Register /> },
-      { path: 'designs', element: <Designs /> },
-      { path: 'bookings', element: <Bookings /> },
-      { path: 'admin', element: <AdminDashboard /> },
+      { path: 'browse', element: <Browse /> },
+      { path: 'designs', element: <Browse /> },
+      { path: 'designs/:id', element: <DesignDetails /> },
+      { path: 'favorites', element: <Favorites /> },
+      {
+        path: 'bookings',
+        element: (
+          <ProtectedRoute>
+            <Bookings />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'bookings/:id',
+        element: (
+          <ProtectedRoute>
+            <BookingDetails />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'profile',
+        element: (
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'settings',
+        element: (
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/admin',
+    element: (
+      <AdminRoute>
+        <AdminLayout />
+      </AdminRoute>
+    ),
+    children: [
+      { index: true, element: <AdminDashboard /> },
+      { path: 'bookings', element: <AdminBookings /> },
+      { path: 'designs', element: <AdminDesigns /> },
+      { path: 'availability', element: <AdminAvailability /> },
     ],
   },
 ]);
