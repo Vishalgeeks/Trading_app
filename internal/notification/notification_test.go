@@ -3,6 +3,7 @@ package notification
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
@@ -30,13 +31,16 @@ func setupNotificationRepo(t *testing.T) (*Repository, *user.Repository) {
 	return NewRepository(pool), user.NewRepository(pool)
 }
 
+func uniqueEmail(prefix string) string {
+	return prefix + "-" + time.Now().Format("20060102150405") + "@example.com"
+}
+
 func TestRepository_CreateNotification(t *testing.T) {
 	repo, userRepo := setupNotificationRepo(t)
-	ctx := context.Background()
 
 	u, err := userRepo.CreateUser(ctx, user.User{
 		Name:         "Test User",
-		Email:        "test-notif-1@example.com",
+		Email:        uniqueEmail("test-notif-1"),
 		Phone:        strPtr("1234567890"),
 		PasswordHash: "hash",
 		Role:         user.RoleClient,
@@ -64,11 +68,10 @@ func TestRepository_CreateNotification(t *testing.T) {
 func TestService_ListNotifications(t *testing.T) {
 	repo, userRepo := setupNotificationRepo(t)
 	svc := NewService(repo, userRepo)
-	ctx := context.Background()
 
 	u, err := userRepo.CreateUser(ctx, user.User{
 		Name:         "Test User",
-		Email:        "test-notif-2@example.com",
+		Email:        uniqueEmail("test-notif-2"),
 		Phone:        strPtr("1234567890"),
 		PasswordHash: "hash",
 		Role:         user.RoleClient,
@@ -96,11 +99,10 @@ func TestService_ListNotifications(t *testing.T) {
 func TestService_MarkAsRead(t *testing.T) {
 	repo, userRepo := setupNotificationRepo(t)
 	svc := NewService(repo, userRepo)
-	ctx := context.Background()
 
 	u, err := userRepo.CreateUser(ctx, user.User{
 		Name:         "Test User",
-		Email:        "test-notif-3@example.com",
+		Email:        uniqueEmail("test-notif-3"),
 		Phone:        strPtr("1234567890"),
 		PasswordHash: "hash",
 		Role:         user.RoleClient,
@@ -129,11 +131,10 @@ func TestService_MarkAsRead(t *testing.T) {
 func TestService_MarkAllAsRead(t *testing.T) {
 	repo, userRepo := setupNotificationRepo(t)
 	svc := NewService(repo, userRepo)
-	ctx := context.Background()
 
 	u, err := userRepo.CreateUser(ctx, user.User{
 		Name:         "Test User",
-		Email:        "test-notif-4@example.com",
+		Email:        uniqueEmail("test-notif-4"),
 		Phone:        strPtr("1234567890"),
 		PasswordHash: "hash",
 		Role:         user.RoleClient,
@@ -164,11 +165,10 @@ func TestService_MarkAllAsRead(t *testing.T) {
 func TestService_GetUnreadCount(t *testing.T) {
 	repo, userRepo := setupNotificationRepo(t)
 	svc := NewService(repo, userRepo)
-	ctx := context.Background()
 
 	u, err := userRepo.CreateUser(ctx, user.User{
 		Name:         "Test User",
-		Email:        "test-notif-5@example.com",
+		Email:        uniqueEmail("test-notif-5"),
 		Phone:        strPtr("1234567890"),
 		PasswordHash: "hash",
 		Role:         user.RoleClient,

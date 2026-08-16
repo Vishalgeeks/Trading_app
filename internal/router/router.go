@@ -51,6 +51,8 @@ func NewRouter(userHandler *user.Handler, authHandler *auth.Handler, categoryHan
 	r.HandleFunc("/api/bookings", bookingHandler.CreateBooking).Methods("POST")
 	r.Handle("/api/bookings/{id}", middleware.RequireAuth(http.HandlerFunc(bookingHandler.GetBooking))).Methods("GET")
 	r.Handle("/api/bookings/{id}/cancel", middleware.RequireAuth(http.HandlerFunc(bookingHandler.CancelBooking))).Methods("PATCH")
+	r.Handle("/api/bookings/upcoming", middleware.RequireAuth(http.HandlerFunc(bookingHandler.ListUpcomingBookings))).Methods("GET")
+	r.Handle("/api/bookings/history", middleware.RequireAuth(http.HandlerFunc(bookingHandler.ListBookingHistory))).Methods("GET")
 
 	r.Handle("/api/notifications", middleware.RequireAuth(http.HandlerFunc(notificationHandler.ListNotifications))).Methods("GET")
 	r.Handle("/api/notifications/unread", middleware.RequireAuth(http.HandlerFunc(notificationHandler.ListUnreadNotifications))).Methods("GET")
@@ -72,6 +74,9 @@ func NewRouter(userHandler *user.Handler, authHandler *auth.Handler, categoryHan
 	r.Handle("/api/admin/bookings", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminListBookings)))).Methods("GET")
 	r.Handle("/api/admin/bookings/{id}", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminGetBooking)))).Methods("GET")
 	r.Handle("/api/admin/bookings/{id}/status", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminUpdateBookingStatus)))).Methods("PATCH")
+	r.Handle("/api/admin/bookings/upcoming", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminUpcomingBookings)))).Methods("GET")
+	r.Handle("/api/admin/bookings/history", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminBookingHistory)))).Methods("GET")
+	r.Handle("/api/admin/bookings/stats", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminBookingStats)))).Methods("GET")
 
 	cors := middleware.NewCORS()
 	r.Use(cors.Handler)

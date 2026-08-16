@@ -279,6 +279,436 @@ func (r *Repository) CancelBooking(ctx context.Context, id string) (Booking, err
 	return booking, nil
 }
 
+func (r *Repository) ListClientBookingsPaginated(ctx context.Context, userID string, status *string, date *string, fromDate *string, toDate *string, limit int, offset int) ([]Booking, error) {
+	query := `
+		SELECT b.id, b.user_id, b.design_id, b.booking_date, b.start_time, b.end_time, b.status, b.notes, b.created_at, b.updated_at,
+		       d.name, u.name, u.email, u.phone
+		FROM bookings b
+		JOIN designs d ON b.design_id = d.id
+		JOIN users u ON b.user_id = u.id
+		WHERE b.user_id = $1
+	`
+	args := []interface{}{userID}
+	argCount := 1
+
+	if status != nil && *status != "" {
+		query += fmt.Sprintf(" AND b.status = $%d", argCount+1)
+		args = append(args, *status)
+		argCount++
+	}
+
+	if date != nil && *date != "" {
+		query += fmt.Sprintf(" AND b.booking_date = $%d", argCount+1)
+		args = append(args, *date)
+		argCount++
+	}
+
+	if fromDate != nil && *fromDate != "" {
+		query += fmt.Sprintf(" AND b.booking_date >= $%d", argCount+1)
+		args = append(args, *fromDate)
+		argCount++
+	}
+
+	if toDate != nil && *toDate != "" {
+		query += fmt.Sprintf(" AND b.booking_date <= $%d", argCount+1)
+		args = append(args, *toDate)
+		argCount++
+	}
+
+	query += fmt.Sprintf(" ORDER BY b.booking_date DESC, b.start_time DESC LIMIT $%d OFFSET $%d", argCount+1, argCount+2)
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		booking, err := scanBookingWithDetails(rows)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
+		bookings = append(bookings, booking)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return bookings, nil
+}
+
+func (r *Repository) ListAdminBookingsPaginated(ctx context.Context, status *string, date *string, fromDate *string, toDate *string, search *string, limit int, offset int) ([]Booking, error) {
+	query := `
+		SELECT b.id, b.user_id, b.design_id, b.booking_date, b.start_time, b.end_time, b.status, b.notes, b.created_at, b.updated_at,
+		       d.name, u.name, u.email, u.phone
+		FROM bookings b
+		JOIN designs d ON b.design_id = d.id
+		JOIN users u ON b.user_id = u.id
+		WHERE 1=1
+	`
+	args := []interface{}{}
+	argCount := 0
+
+	if status != nil && *status != "" {
+		argCount++
+		query += fmt.Sprintf(" AND b.status = $%d", argCount)
+		args = append(args, *status)
+	}
+
+	if date != nil && *date != "" {
+		argCount++
+		query += fmt.Sprintf(" AND b.booking_date = $%d", argCount)
+		args = append(args, *date)
+	}
+
+	if fromDate != nil && *fromDate != "" {
+		argCount++
+		query += fmt.Sprintf(" AND b.booking_date >= $%d", argCount)
+		args = append(args, *fromDate)
+	}
+
+	if toDate != nil && *toDate != "" {
+		argCount++
+		query += fmt.Sprintf(" AND b.booking_date <= $%d", argCount)
+		args = append(args, *toDate)
+	}
+
+	if search != nil && *search != "" {
+		argCount++
+		query += fmt.Sprintf(" AND (u.name ILIKE $%d OR u.email ILIKE $%d OR d.name ILIKE $%d)", argCount, argCount, argCount)
+		args = append(args, "%"+*search+"%")
+	}
+
+	query += fmt.Sprintf(" ORDER BY b.booking_date DESC, b.start_time DESC LIMIT $%d OFFSET $%d", argCount+1, argCount+2)
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		booking, err := scanBookingWithDetails(rows)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
+		bookings = append(bookings, booking)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return bookings, nil
+}
+
+func (r *Repository) ListClientUpcomingBookings(ctx context.Context, userID string, limit int) ([]Booking, error) {
+	query := `
+		SELECT b.id, b.user_id, b.design_id, b.booking_date, b.start_time, b.end_time, b.status, b.notes, b.created_at, b.updated_at,
+		       d.name, u.name, u.email, u.phone
+		FROM bookings b
+		JOIN designs d ON b.design_id = d.id
+		JOIN users u ON b.user_id = u.id
+		WHERE b.user_id = $1
+		  AND b.status IN ('PENDING', 'CONFIRMED')
+		  AND (b.booking_date > CURRENT_DATE OR (b.booking_date = CURRENT_DATE AND b.start_time > CURRENT_TIME))
+		ORDER BY b.booking_date ASC, b.start_time ASC
+		LIMIT $2
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		booking, err := scanBookingWithDetails(rows)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
+		bookings = append(bookings, booking)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return bookings, nil
+}
+
+func (r *Repository) ListClientBookingHistory(ctx context.Context, userID string, limit int, offset int) ([]Booking, error) {
+	query := `
+		SELECT b.id, b.user_id, b.design_id, b.booking_date, b.start_time, b.end_time, b.status, b.notes, b.created_at, b.updated_at,
+		       d.name, u.name, u.email, u.phone
+		FROM bookings b
+		JOIN designs d ON b.design_id = d.id
+		JOIN users u ON b.user_id = u.id
+		WHERE b.user_id = $1
+		  AND b.status IN ('COMPLETED', 'CANCELLED')
+		ORDER BY b.booking_date DESC, b.start_time DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		booking, err := scanBookingWithDetails(rows)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
+		bookings = append(bookings, booking)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return bookings, nil
+}
+
+func (r *Repository) ListAdminUpcomingBookings(ctx context.Context, limit int) ([]Booking, error) {
+	query := `
+		SELECT b.id, b.user_id, b.design_id, b.booking_date, b.start_time, b.end_time, b.status, b.notes, b.created_at, b.updated_at,
+		       d.name, u.name, u.email, u.phone
+		FROM bookings b
+		JOIN designs d ON b.design_id = d.id
+		JOIN users u ON b.user_id = u.id
+		WHERE b.status IN ('PENDING', 'CONFIRMED')
+		  AND (b.booking_date > CURRENT_DATE OR (b.booking_date = CURRENT_DATE AND b.start_time > CURRENT_TIME))
+		ORDER BY b.booking_date ASC, b.start_time ASC
+		LIMIT $1
+	`
+
+	rows, err := r.pool.Query(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		booking, err := scanBookingWithDetails(rows)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
+		bookings = append(bookings, booking)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return bookings, nil
+}
+
+func (r *Repository) ListAdminBookingHistory(ctx context.Context, limit int, offset int) ([]Booking, error) {
+	query := `
+		SELECT b.id, b.user_id, b.design_id, b.booking_date, b.start_time, b.end_time, b.status, b.notes, b.created_at, b.updated_at,
+		       d.name, u.name, u.email, u.phone
+		FROM bookings b
+		JOIN designs d ON b.design_id = d.id
+		JOIN users u ON b.user_id = u.id
+		WHERE b.status IN ('COMPLETED', 'CANCELLED')
+		ORDER BY b.booking_date DESC, b.start_time DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.pool.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		booking, err := scanBookingWithDetails(rows)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
+		bookings = append(bookings, booking)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return bookings, nil
+}
+
+func (r *Repository) SearchAdminBookings(ctx context.Context, search string, limit int, offset int) ([]Booking, error) {
+	query := `
+		SELECT b.id, b.user_id, b.design_id, b.booking_date, b.start_time, b.end_time, b.status, b.notes, b.created_at, b.updated_at,
+		       d.name, u.name, u.email, u.phone
+		FROM bookings b
+		JOIN designs d ON b.design_id = d.id
+		JOIN users u ON b.user_id = u.id
+		WHERE u.name ILIKE $1 OR u.email ILIKE $1 OR d.name ILIKE $1
+		ORDER BY b.booking_date DESC, b.start_time DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.pool.Query(ctx, query, "%"+search+"%", limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+	defer rows.Close()
+
+	var bookings []Booking
+	for rows.Next() {
+		booking, err := scanBookingWithDetails(rows)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+		}
+		bookings = append(bookings, booking)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return bookings, nil
+}
+
+func (r *Repository) GetAdminBookingStats(ctx context.Context, fromDate *string, toDate *string) (BookingStats, error) {
+	query := `
+		SELECT
+			COUNT(*) AS total,
+			COUNT(*) FILTER (WHERE status = 'PENDING') AS pending,
+			COUNT(*) FILTER (WHERE status = 'CONFIRMED') AS confirmed,
+			COUNT(*) FILTER (WHERE status = 'COMPLETED') AS completed,
+			COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled,
+			COUNT(*) FILTER (WHERE status IN ('PENDING', 'CONFIRMED') AND (booking_date > CURRENT_DATE OR (booking_date = CURRENT_DATE AND start_time > CURRENT_TIME))) AS upcoming
+		FROM bookings
+		WHERE 1=1
+	`
+	args := []interface{}{}
+	argCount := 0
+
+	if fromDate != nil && *fromDate != "" {
+		argCount++
+		query += fmt.Sprintf(" AND booking_date >= $%d", argCount)
+		args = append(args, *fromDate)
+	}
+
+	if toDate != nil && *toDate != "" {
+		argCount++
+		query += fmt.Sprintf(" AND booking_date <= $%d", argCount)
+		args = append(args, *toDate)
+	}
+
+	var stats BookingStats
+	row := r.pool.QueryRow(ctx, query, args...)
+	if err := row.Scan(&stats.Total, &stats.Pending, &stats.Confirmed, &stats.Completed, &stats.Cancelled, &stats.Upcoming); err != nil {
+		return BookingStats{}, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return stats, nil
+}
+
+func (r *Repository) CountClientBookings(ctx context.Context, userID string, status *string, date *string, fromDate *string, toDate *string) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM bookings
+		WHERE user_id = $1
+	`
+	args := []interface{}{userID}
+	argCount := 1
+
+	if status != nil && *status != "" {
+		query += fmt.Sprintf(" AND status = $%d", argCount+1)
+		args = append(args, *status)
+		argCount++
+	}
+
+	if date != nil && *date != "" {
+		query += fmt.Sprintf(" AND booking_date = $%d", argCount+1)
+		args = append(args, *date)
+		argCount++
+	}
+
+	if fromDate != nil && *fromDate != "" {
+		query += fmt.Sprintf(" AND booking_date >= $%d", argCount+1)
+		args = append(args, *fromDate)
+		argCount++
+	}
+
+	if toDate != nil && *toDate != "" {
+		query += fmt.Sprintf(" AND booking_date <= $%d", argCount+1)
+		args = append(args, *toDate)
+		argCount++
+	}
+
+	var count int
+	row := r.pool.QueryRow(ctx, query, args...)
+	if err := row.Scan(&count); err != nil {
+		return 0, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return count, nil
+}
+
+func (r *Repository) CountAdminBookings(ctx context.Context, status *string, date *string, fromDate *string, toDate *string, search *string) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM bookings b
+		JOIN designs d ON b.design_id = d.id
+		JOIN users u ON b.user_id = u.id
+		WHERE 1=1
+	`
+	args := []interface{}{}
+	argCount := 0
+
+	if status != nil && *status != "" {
+		argCount++
+		query += fmt.Sprintf(" AND b.status = $%d", argCount)
+		args = append(args, *status)
+	}
+
+	if date != nil && *date != "" {
+		argCount++
+		query += fmt.Sprintf(" AND b.booking_date = $%d", argCount)
+		args = append(args, *date)
+	}
+
+	if fromDate != nil && *fromDate != "" {
+		argCount++
+		query += fmt.Sprintf(" AND b.booking_date >= $%d", argCount)
+		args = append(args, *fromDate)
+	}
+
+	if toDate != nil && *toDate != "" {
+		argCount++
+		query += fmt.Sprintf(" AND b.booking_date <= $%d", argCount)
+		args = append(args, *toDate)
+	}
+
+	if search != nil && *search != "" {
+		argCount++
+		query += fmt.Sprintf(" AND (u.name ILIKE $%d OR u.email ILIKE $%d OR d.name ILIKE $%d)", argCount, argCount, argCount)
+		args = append(args, "%"+*search+"%")
+	}
+
+	var count int
+	row := r.pool.QueryRow(ctx, query, args...)
+	if err := row.Scan(&count); err != nil {
+		return 0, fmt.Errorf("%w: %v", ErrDatabaseFailure, err)
+	}
+
+	return count, nil
+}
+
 func scanBooking(scanner interface {
 	Scan(dest ...interface{}) error
 }) (Booking, error) {

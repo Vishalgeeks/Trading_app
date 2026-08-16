@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"mehndi-booking-backend/internal/middleware"
 )
@@ -54,6 +55,25 @@ func (h *Handler) ListBookings(w http.ResponseWriter, r *http.Request) {
 
 	status := r.URL.Query().Get("status")
 	date := r.URL.Query().Get("date")
+	fromDate := r.URL.Query().Get("from")
+	toDate := r.URL.Query().Get("to")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 20
+	offset := 0
+
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	if offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
 
 	var statusPtr *string
 	if status != "" {
@@ -65,20 +85,39 @@ func (h *Handler) ListBookings(w http.ResponseWriter, r *http.Request) {
 		datePtr = &date
 	}
 
-	bookings, err := h.service.ListUserBookings(r.Context(), user.UserID, statusPtr, datePtr)
+	var fromDatePtr *string
+	if fromDate != "" {
+		fromDatePtr = &fromDate
+	}
+
+	var toDatePtr *string
+	if toDate != "" {
+		toDatePtr = &toDate
+	}
+
+	bookings, err := h.service.ListUserBookingsPaginated(r.Context(), user.UserID, statusPtr, datePtr, fromDatePtr, toDatePtr, limit, offset)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	total, err := h.service.CountUserBookings(r.Context(), user.UserID, statusPtr, datePtr, fromDatePtr, toDatePtr)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
 	responses := make([]BookingResponse, len(bookings))
-	for i, booking := range bookings {
-		responses[i] = booking.ToResponse()
+	for i, b := range bookings {
+		responses[i] = b.ToResponse()
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"bookings": responses,
 		"count":    len(responses),
+		"total":    total,
+		"limit":    limit,
+		"offset":   offset,
 	})
 }
 
@@ -137,11 +176,97 @@ func (h *Handler) CancelBooking(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, booking.ToResponse())
 }
 
+func (h *Handler) ListUpcomingBookings(w http.ResponseWriter, r *http.Request) {
+	user, ok := middleware.FromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	bookings, err := h.service.ListClientUpcomingBookings(r.Context(), user.UserID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	responses := make([]BookingResponse, len(bookings))
+	for i, b := range bookings {
+		responses[i] = b.ToResponse()
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"bookings": responses,
+		"count":    len(responses),
+	})
+}
+
+func (h *Handler) ListBookingHistory(w http.ResponseWriter, r *http.Request) {
+	user, ok := middleware.FromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 20
+	offset := 0
+
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	if offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	bookings, err := h.service.ListClientBookingHistory(r.Context(), user.UserID, limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	responses := make([]BookingResponse, len(bookings))
+	for i, b := range bookings {
+		responses[i] = b.ToResponse()
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"bookings": responses,
+		"count":    len(responses),
+		"limit":    limit,
+		"offset":   offset,
+	})
+}
+
 func (h *Handler) AdminListBookings(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	date := r.URL.Query().Get("date")
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
+	search := r.URL.Query().Get("search")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 20
+	offset := 0
+
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	if offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
 
 	var statusPtr *string
 	if status != "" {
@@ -163,20 +288,34 @@ func (h *Handler) AdminListBookings(w http.ResponseWriter, r *http.Request) {
 		toDatePtr = &toDate
 	}
 
-	bookings, err := h.service.ListAdminBookings(r.Context(), statusPtr, datePtr, fromDatePtr, toDatePtr)
+	var searchPtr *string
+	if search != "" {
+		searchPtr = &search
+	}
+
+	bookings, err := h.service.ListAdminBookingsPaginated(r.Context(), statusPtr, datePtr, fromDatePtr, toDatePtr, searchPtr, limit, offset)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	total, err := h.service.CountAdminBookings(r.Context(), statusPtr, datePtr, fromDatePtr, toDatePtr, searchPtr)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
 	responses := make([]AdminBookingResponse, len(bookings))
-	for i, booking := range bookings {
-		responses[i] = booking.ToAdminResponse()
+	for i, b := range bookings {
+		responses[i] = b.ToAdminResponse()
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"bookings": responses,
 		"count":    len(responses),
+		"total":    total,
+		"limit":    limit,
+		"offset":   offset,
 	})
 }
 
@@ -222,6 +361,108 @@ func (h *Handler) AdminUpdateBookingStatus(w http.ResponseWriter, r *http.Reques
 			writeError(w, http.StatusBadRequest, err.Error())
 		default:
 			writeError(w, http.StatusConflict, err.Error())
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, booking.ToAdminResponse())
+}
+
+func (h *Handler) AdminUpcomingBookings(w http.ResponseWriter, r *http.Request) {
+	bookings, err := h.service.ListAdminUpcomingBookings(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	responses := make([]AdminBookingResponse, len(bookings))
+	for i, b := range bookings {
+		responses[i] = b.ToAdminResponse()
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"bookings": responses,
+		"count":    len(responses),
+	})
+}
+
+func (h *Handler) AdminBookingHistory(w http.ResponseWriter, r *http.Request) {
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 20
+	offset := 0
+
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	if offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	bookings, err := h.service.ListAdminBookingHistory(r.Context(), limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	responses := make([]AdminBookingResponse, len(bookings))
+	for i, b := range bookings {
+		responses[i] = b.ToAdminResponse()
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"bookings": responses,
+		"count":    len(responses),
+		"limit":    limit,
+		"offset":   offset,
+	})
+}
+
+func (h *Handler) AdminBookingStats(w http.ResponseWriter, r *http.Request) {
+	fromDate := r.URL.Query().Get("from")
+	toDate := r.URL.Query().Get("to")
+
+	var fromDatePtr *string
+	if fromDate != "" {
+		fromDatePtr = &fromDate
+	}
+
+	var toDatePtr *string
+	if toDate != "" {
+		toDatePtr = &toDate
+	}
+
+	stats, err := h.service.GetAdminBookingStats(r.Context(), fromDatePtr, toDatePtr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, stats)
+}
+
+func (h *Handler) AdminCancelBooking(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	booking, err := h.service.CancelBooking(r.Context(), id, "", true)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBookingNotFound):
+			writeError(w, http.StatusNotFound, "booking not found")
+		case errors.Is(err, ErrInvalidStatus):
+			writeError(w, http.StatusConflict, err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}

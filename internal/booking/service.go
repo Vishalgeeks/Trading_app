@@ -20,10 +20,29 @@ type BookingRepository interface {
 	GetBookingByIDForUser(ctx context.Context, id string, userID string) (Booking, error)
 	ListBookingsByUser(ctx context.Context, userID string, status *string, date *string) ([]Booking, error)
 	ListAdminBookings(ctx context.Context, status *string, date *string, fromDate *string, toDate *string) ([]Booking, error)
+	ListClientBookingsPaginated(ctx context.Context, userID string, status *string, date *string, fromDate *string, toDate *string, limit int, offset int) ([]Booking, error)
+	ListAdminBookingsPaginated(ctx context.Context, status *string, date *string, fromDate *string, toDate *string, search *string, limit int, offset int) ([]Booking, error)
+	ListClientUpcomingBookings(ctx context.Context, userID string, limit int) ([]Booking, error)
+	ListClientBookingHistory(ctx context.Context, userID string, limit int, offset int) ([]Booking, error)
+	ListAdminUpcomingBookings(ctx context.Context, limit int) ([]Booking, error)
+	ListAdminBookingHistory(ctx context.Context, limit int, offset int) ([]Booking, error)
+	SearchAdminBookings(ctx context.Context, search string, limit int, offset int) ([]Booking, error)
+	GetAdminBookingStats(ctx context.Context, fromDate *string, toDate *string) (BookingStats, error)
+	CountClientBookings(ctx context.Context, userID string, status *string, date *string, fromDate *string, toDate *string) (int, error)
+	CountAdminBookings(ctx context.Context, status *string, date *string, fromDate *string, toDate *string, search *string) (int, error)
 	CheckBookingOverlap(ctx context.Context, designID string, bookingDate time.Time, startTime, endTime time.Time, excludeBookingID *string) (bool, error)
 	UpdateBookingStatus(ctx context.Context, id string, status string) (Booking, error)
 	CancelBooking(ctx context.Context, id string) (Booking, error)
 	BeginTx(ctx context.Context) (pgx.Tx, error)
+}
+
+type BookingStats struct {
+	Total     int `json:"total"`
+	Pending   int `json:"pending"`
+	Confirmed int `json:"confirmed"`
+	Completed int `json:"completed"`
+	Cancelled int `json:"cancelled"`
+	Upcoming  int `json:"upcoming"`
 }
 
 type AvailabilityRepository interface {
@@ -225,8 +244,157 @@ func (s *Service) ListUserBookings(ctx context.Context, userID string, status *s
 	return s.bookingRepo.ListBookingsByUser(ctx, userID, status, date)
 }
 
+func (s *Service) ListUserBookingsPaginated(ctx context.Context, userID string, status *string, date *string, fromDate *string, toDate *string, limit, offset int) ([]Booking, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	if status != nil && *status != "" {
+		validStatuses := map[string]bool{"PENDING": true, "CONFIRMED": true, "CANCELLED": true, "COMPLETED": true}
+		if !validStatuses[*status] {
+			return nil, fmt.Errorf("invalid status: %s", *status)
+		}
+	}
+
+	if fromDate != nil && *fromDate != "" {
+		if _, err := time.Parse("2006-01-02", *fromDate); err != nil {
+			return nil, fmt.Errorf("invalid from date format, use YYYY-MM-DD")
+		}
+	}
+
+	if toDate != nil && *toDate != "" {
+		if _, err := time.Parse("2006-01-02", *toDate); err != nil {
+			return nil, fmt.Errorf("invalid to date format, use YYYY-MM-DD")
+		}
+	}
+
+	if fromDate != nil && toDate != nil && *fromDate != "" && *toDate != "" && *fromDate > *toDate {
+		return nil, fmt.Errorf("from date must be before or equal to to date")
+	}
+
+	return s.bookingRepo.ListClientBookingsPaginated(ctx, userID, status, date, fromDate, toDate, limit, offset)
+}
+
+func (s *Service) CountUserBookings(ctx context.Context, userID string, status *string, date *string, fromDate *string, toDate *string) (int, error) {
+	return s.bookingRepo.CountClientBookings(ctx, userID, status, date, fromDate, toDate)
+}
+
 func (s *Service) ListAdminBookings(ctx context.Context, status *string, date *string, fromDate *string, toDate *string) ([]Booking, error) {
 	return s.bookingRepo.ListAdminBookings(ctx, status, date, fromDate, toDate)
+}
+
+func (s *Service) ListAdminBookingsPaginated(ctx context.Context, status *string, date *string, fromDate *string, toDate *string, search *string, limit, offset int) ([]Booking, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	if status != nil && *status != "" {
+		validStatuses := map[string]bool{"PENDING": true, "CONFIRMED": true, "CANCELLED": true, "COMPLETED": true}
+		if !validStatuses[*status] {
+			return nil, fmt.Errorf("invalid status: %s", *status)
+		}
+	}
+
+	if fromDate != nil && *fromDate != "" {
+		if _, err := time.Parse("2006-01-02", *fromDate); err != nil {
+			return nil, fmt.Errorf("invalid from date format, use YYYY-MM-DD")
+		}
+	}
+
+	if toDate != nil && *toDate != "" {
+		if _, err := time.Parse("2006-01-02", *toDate); err != nil {
+			return nil, fmt.Errorf("invalid to date format, use YYYY-MM-DD")
+		}
+	}
+
+	if fromDate != nil && toDate != nil && *fromDate != "" && *toDate != "" && *fromDate > *toDate {
+		return nil, fmt.Errorf("from date must be before or equal to to date")
+	}
+
+	return s.bookingRepo.ListAdminBookingsPaginated(ctx, status, date, fromDate, toDate, search, limit, offset)
+}
+
+func (s *Service) CountAdminBookings(ctx context.Context, status *string, date *string, fromDate *string, toDate *string, search *string) (int, error) {
+	return s.bookingRepo.CountAdminBookings(ctx, status, date, fromDate, toDate, search)
+}
+
+func (s *Service) ListClientUpcomingBookings(ctx context.Context, userID string) ([]Booking, error) {
+	return s.bookingRepo.ListClientUpcomingBookings(ctx, userID, 50)
+}
+
+func (s *Service) ListClientBookingHistory(ctx context.Context, userID string, limit, offset int) ([]Booking, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.bookingRepo.ListClientBookingHistory(ctx, userID, limit, offset)
+}
+
+func (s *Service) ListAdminUpcomingBookings(ctx context.Context) ([]Booking, error) {
+	return s.bookingRepo.ListAdminUpcomingBookings(ctx, 50)
+}
+
+func (s *Service) ListAdminBookingHistory(ctx context.Context, limit, offset int) ([]Booking, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.bookingRepo.ListAdminBookingHistory(ctx, limit, offset)
+}
+
+func (s *Service) SearchAdminBookings(ctx context.Context, search string, limit, offset int) ([]Booking, error) {
+	if search == "" {
+		return nil, fmt.Errorf("search query is required")
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.bookingRepo.SearchAdminBookings(ctx, search, limit, offset)
+}
+
+func (s *Service) GetAdminBookingStats(ctx context.Context, fromDate *string, toDate *string) (BookingStats, error) {
+	if fromDate != nil && *fromDate != "" {
+		if _, err := time.Parse("2006-01-02", *fromDate); err != nil {
+			return BookingStats{}, fmt.Errorf("invalid from date format, use YYYY-MM-DD")
+		}
+	}
+	if toDate != nil && *toDate != "" {
+		if _, err := time.Parse("2006-01-02", *toDate); err != nil {
+			return BookingStats{}, fmt.Errorf("invalid to date format, use YYYY-MM-DD")
+		}
+	}
+	if fromDate != nil && toDate != nil && *fromDate != "" && *toDate != "" && *fromDate > *toDate {
+		return BookingStats{}, fmt.Errorf("from date must be before or equal to to date")
+	}
+	return s.bookingRepo.GetAdminBookingStats(ctx, fromDate, toDate)
 }
 
 func (s *Service) CancelBooking(ctx context.Context, id string, userID string, isAdmin bool) (Booking, error) {
