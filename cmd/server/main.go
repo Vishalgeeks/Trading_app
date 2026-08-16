@@ -10,9 +10,14 @@ import (
 	"time"
 
 	"mehndi-booking-backend/internal/auth"
+	"mehndi-booking-backend/internal/availability"
+	"mehndi-booking-backend/internal/booking"
+	"mehndi-booking-backend/internal/category"
 	"mehndi-booking-backend/internal/config"
 	"mehndi-booking-backend/internal/database"
+	"mehndi-booking-backend/internal/design"
 	"mehndi-booking-backend/internal/middleware"
+	"mehndi-booking-backend/internal/notification"
 	"mehndi-booking-backend/internal/router"
 	"mehndi-booking-backend/internal/user"
 )
@@ -123,9 +128,32 @@ func main() {
 	authService := auth.NewService(authRepo, cfg.JWTSecret, cfg.TokenExpiryHours)
 	authHandler := auth.NewHandler(authService)
 
+	categoryRepo := category.NewRepository(pool)
+	categoryService := category.NewService(categoryRepo)
+	categoryHandler := category.NewHandler(categoryService)
+
+	designRepo := design.NewRepository(pool)
+	designService := design.NewService(designRepo, categoryRepo)
+	designHandler := design.NewHandler(designService)
+
+	availabilityRepo := availability.NewRepository(pool)
+	availabilityService := availability.NewService(availabilityRepo)
+	availabilityHandler := availability.NewHandler(availabilityService)
+
+	bookingRepo := booking.NewRepository(pool)
+
+	notificationRepo := notification.NewRepository(pool)
+	notificationService := notification.NewService(notificationRepo, userRepo)
+
+	bookingService := booking.NewService(bookingRepo, availabilityRepo, notificationRepo, userRepo)
+	bookingHandler := booking.NewHandler(bookingService)
+	slotHandler := booking.NewSlotHandler(bookingService)
+
+	notificationHandler := notification.NewHandler(notificationService)
+
 	middleware.SetJWTSecret(cfg.JWTSecret)
 
-	r := router.NewRouter(userHandler, authHandler)
+	r := router.NewRouter(userHandler, authHandler, categoryHandler, designHandler, availabilityHandler, bookingHandler, slotHandler, notificationHandler)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.AppPort,
