@@ -2,6 +2,8 @@ import { Heart } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 
 export default function DesignCard({ design, onFavoriteToggle, onPress }) {
+  const isFavorite = Boolean(design.favorite);
+
   return (
     <div
       onClick={onPress}
@@ -20,8 +22,8 @@ export default function DesignCard({ design, onFavoriteToggle, onPress }) {
             <IconButton variant="ghost">
               <Heart
                 size={18}
-                fill={design.favorite ? '#f43f5e' : 'none'}
-                className={design.favorite ? 'text-rose-500' : 'text-gray-400'}
+                fill={isFavorite ? '#f43f5e' : 'none'}
+                className={isFavorite ? 'text-rose-500' : 'text-gray-400'}
               />
             </IconButton>
           </button>

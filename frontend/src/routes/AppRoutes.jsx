@@ -9,6 +9,7 @@ import DesignDetails from '../pages/DesignDetails';
 import Favorites from '../pages/Favorites';
 import Bookings from '../pages/Bookings';
 import BookingDetails from '../pages/BookingDetails';
+import Booking from '../pages/Booking';
 import Profile from '../pages/Profile';
 import Settings from '../pages/Settings';
 import AdminBookings from '../pages/AdminBookings';
@@ -29,6 +30,14 @@ const router = createBrowserRouter([
       { path: 'browse', element: <Browse /> },
       { path: 'designs', element: <Browse /> },
       { path: 'designs/:id', element: <DesignDetails /> },
+      {
+        path: 'booking/:id',
+        element: (
+          <ProtectedRoute>
+            <Booking />
+          </ProtectedRoute>
+        ),
+      },
       { path: 'favorites', element: <Favorites /> },
       {
         path: 'bookings',

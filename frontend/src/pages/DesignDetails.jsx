@@ -160,34 +160,9 @@ export default function DesignDetails() {
         </div>
 
         <div className="mb-8">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Book This Design</h3>
-          <div className="bg-rose-50 dark:bg-neutral-800 rounded-2xl p-5 border border-rose-100 dark:border-neutral-700">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1.5">
-                  Select Date
-                </label>
-                <input
-                  type="date"
-                  className="w-full px-4 py-3 bg-white dark:bg-neutral-700 border border-rose-200 dark:border-neutral-600 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1.5">
-                  Select Time
-                </label>
-                <select className="w-full px-4 py-3 bg-white dark:bg-neutral-700 border border-rose-200 dark:border-neutral-600 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none">
-                  <option>10:00 AM</option>
-                  <option>11:00 AM</option>
-                  <option>12:00 PM</option>
-                  <option>02:00 PM</option>
-                  <option>03:00 PM</option>
-                  <option>04:00 PM</option>
-                </select>
-              </div>
-              <Button className="w-full">Book Now</Button>
-            </div>
-          </div>
+          <Button className="w-full" onClick={() => navigate(`/booking/${design.id}`)}>
+            Book Now
+          </Button>
         </div>
 
         {relatedDesigns.length > 0 && (

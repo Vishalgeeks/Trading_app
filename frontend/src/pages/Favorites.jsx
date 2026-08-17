@@ -1,40 +1,109 @@
-import { useState } from 'react';
-import { mockDesigns } from '../mockData';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { favoriteService } from '../services/favoriteService';
+import { designService } from '../services/designService';
 import DesignCard from '../components/designs/DesignCard';
 import { Heart } from 'lucide-react';
 
 export default function Favorites() {
-  const [favorites, setFavorites] = useState(
-    mockDesigns.filter((d) => d.favorite)
-  );
+  const [designs, setDesigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const toggleFavorite = (id) => {
-    setFavorites((prev) => {
-      const exists = prev.find((d) => d.id === id);
-      if (exists) {
-        return prev.filter((d) => d.id !== id);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError('');
+
+      const result = await favoriteService.listFavorites();
+      if (cancelled) return;
+
+      if (result.error) {
+        if (result.status === 401) {
+          navigate('/login');
+          return;
+        }
+        setError(result.message || 'Failed to load favorites');
+        setLoading(false);
+        return;
       }
-      const design = mockDesigns.find((d) => d.id === id);
-      if (design) return [...prev, { ...design, favorite: true }];
+
+      const favorites = result.data || [];
+      if (favorites.length === 0) {
+        setDesigns([]);
+        setLoading(false);
+        return;
+      }
+
+      const designPromises = favorites.map((fav) => designService.getDesign(fav.design_id));
+      const designResults = await Promise.all(designPromises);
+      const loadedDesigns = designResults
+        .filter((r) => !r.error && r.data)
+        .map((r) => ({ ...r.data, favorite: true }));
+
+      if (!cancelled) {
+        setDesigns(loadedDesigns);
+      }
+      setLoading(false);
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  const handleToggleFavorite = async (designId) => {
+    setDesigns((prev) => {
+      const exists = prev.find((d) => d.id === designId);
+      if (exists) {
+        favoriteService.removeFavorite(designId);
+        return prev.filter((d) => d.id !== designId);
+      }
       return prev;
     });
   };
+
+  if (loading) {
+    return (
+      <div className="pb-24">
+        <div className="px-5 pt-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Favorites</h1>
+          <div className="grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-48 bg-gray-200 dark:bg-neutral-800 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-24">
       <div className="px-5 pt-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Favorites</h1>
         <p className="text-sm text-gray-500 dark:text-neutral-400 mb-6">
-          {favorites.length} saved design{favorites.length !== 1 ? 's' : ''}
+          {designs.length} saved design{designs.length !== 1 ? 's' : ''}
         </p>
 
-        {favorites.length > 0 ? (
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        {designs.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
-            {favorites.map((design) => (
+            {designs.map((design) => (
               <DesignCard
                 key={design.id}
                 design={design}
-                onFavoriteToggle={toggleFavorite}
+                onFavoriteToggle={handleToggleFavorite}
               />
             ))}
           </div>
@@ -44,9 +113,12 @@ export default function Favorites() {
               <Heart size={28} className="text-rose-400 dark:text-orange-400" />
             </div>
             <p className="text-gray-500 dark:text-neutral-400 text-sm mb-4">No favorites yet</p>
-            <p className="text-xs text-gray-400 dark:text-neutral-500">
-              Save designs you love by tapping the heart icon
-            </p>
+            <button
+              onClick={() => navigate('/browse')}
+              className="text-sm text-rose-500 dark:text-orange-400 font-medium"
+            >
+              Browse designs to save favorites
+            </button>
           </div>
         )}
       </div>

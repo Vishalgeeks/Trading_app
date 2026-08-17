@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
+import { userService } from '../services/userService';
 import {
   ChevronRight,
   Heart,
@@ -12,6 +14,32 @@ import {
 export default function Profile() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [profileUser, setProfileUser] = useState(null);
+  const [, setLoading] = useState(true);
+  const [, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      setLoading(true);
+      setError('');
+
+      const result = await userService.getCurrentUser();
+      if (cancelled) return;
+
+      if (!result.error && result.data) {
+        setProfileUser(result.data);
+      }
+      setLoading(false);
+    }
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -34,8 +62,8 @@ export default function Profile() {
               👤
             </div>
             <div>
-              <h1 className="text-xl font-bold">{user?.name || 'Guest User'}</h1>
-              <p className="text-sm text-white/80">{user?.email || 'guest@example.com'}</p>
+              <h1 className="text-xl font-bold">{profileUser?.name || user?.name || 'Guest User'}</h1>
+              <p className="text-sm text-white/80">{profileUser?.email || user?.email || 'guest@example.com'}</p>
             </div>
           </div>
         </div>
