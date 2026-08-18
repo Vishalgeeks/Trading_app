@@ -3,14 +3,26 @@ import IconButton from '../ui/IconButton';
 
 export default function DesignCard({ design, onFavoriteToggle, onPress }) {
   const isFavorite = Boolean(design.favorite);
+  const imageUrl = design.image_url;
 
   return (
     <div
       onClick={onPress}
       className="bg-white dark:bg-neutral-900 rounded-2xl border border-rose-100 dark:border-neutral-800 overflow-hidden shadow-sm active:scale-[0.98] transition-transform cursor-pointer"
     >
-      <div className="relative aspect-[4/3] bg-rose-50 dark:bg-neutral-800 flex items-center justify-center">
-        <span className="text-5xl">🎨</span>
+      <div className="relative aspect-[4/3] bg-rose-50 dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={design.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.style.display = 'none';
+            }}
+          />
+        ) : (
+          <span className="text-5xl">??</span>
+        )}
         {onFavoriteToggle && (
           <button
             onClick={(e) => {
@@ -40,7 +52,7 @@ export default function DesignCard({ design, onFavoriteToggle, onPress }) {
         </h3>
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-500 dark:text-neutral-400">{design.duration}</span>
-          <span className="text-sm font-bold text-rose-600 dark:text-orange-400">₹{design.price}</span>
+          <span className="text-sm font-bold text-rose-600 dark:text-orange-400">?{design.price}</span>
         </div>
       </div>
     </div>

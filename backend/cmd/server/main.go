@@ -16,6 +16,7 @@ import (
 	"mehndi-booking-backend/internal/config"
 	"mehndi-booking-backend/internal/database"
 	"mehndi-booking-backend/internal/design"
+	"mehndi-booking-backend/internal/favorite"
 	"mehndi-booking-backend/internal/middleware"
 	"mehndi-booking-backend/internal/notification"
 	"mehndi-booking-backend/internal/router"
@@ -151,15 +152,25 @@ func main() {
 
 	notificationHandler := notification.NewHandler(notificationService)
 
+	favoriteRepo := favorite.NewRepository(pool)
+	favoriteService := favorite.NewService(favoriteRepo)
+	favoriteHandler := favorite.NewHandler(favoriteService)
+
 	middleware.SetJWTSecret(cfg.JWTSecret)
 
-	r := router.NewRouter(userHandler, authHandler, categoryHandler, designHandler, availabilityHandler, bookingHandler, slotHandler, notificationHandler)
+	r := router.NewRouter(userHandler, authHandler, categoryHandler, designHandler, availabilityHandler, bookingHandler, slotHandler, notificationHandler, favoriteHandler)
+
+	if cfg.UploadDir != "" {
+		r.PathPrefix("/uploads/").Handler(http.StripPrefix("/uploads/", http.FileServer(http.Dir(cfg.UploadDir))))
+	}
+
+	corsHandler := middleware.NewCORS().Handler(r)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.AppPort,
-		Handler:      r,
+		Handler:      corsHandler,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 10 * time.Minute,
 		IdleTimeout:  60 * time.Second,
 	}
 

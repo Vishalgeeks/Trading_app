@@ -1,10 +1,11 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   CalendarDays,
   Image,
   Settings2,
+  FolderTree,
   LogOut,
 } from 'lucide-react';
 
@@ -12,12 +13,13 @@ const adminNavItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/admin/bookings', icon: CalendarDays, label: 'Bookings' },
   { to: '/admin/designs', icon: Image, label: 'Designs' },
+  { to: '/admin/categories', icon: FolderTree, label: 'Categories' },
   { to: '/admin/availability', icon: Settings2, label: 'Schedule' },
 ];
 
 export default function AdminLayout() {
   const { user } = useAuth();
-  const location = useLocation();
+  
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
@@ -28,26 +30,23 @@ export default function AdminLayout() {
             <p className="text-xs text-gray-500 dark:text-neutral-400 mt-1">Admin Panel</p>
           </div>
           <nav className="flex-1 px-4 space-y-1">
-            {adminNavItems.map((item) => {
-              const isActive = item.end
-                ? location.pathname === item.to
-                : location.pathname.startsWith(item.to);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200 ${
-                    isActive
+            {adminNavItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive: navActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200 ${
+                    navActive
                       ? 'bg-rose-50 text-rose-600 dark:bg-orange-950 dark:text-orange-400'
                       : 'text-gray-600 hover:bg-rose-50 hover:text-rose-600 dark:text-neutral-400 dark:hover:bg-orange-950 dark:hover:text-orange-400'
-                  }`}
-                >
-                  <item.icon size={18} />
-                  {item.label}
-                </Link>
-              );
-            })}
+                  }`
+                }
+              >
+                <item.icon size={18} />
+                {item.label}
+              </NavLink>
+            ))}
           </nav>
           <div className="p-4 border-t border-rose-100 dark:border-neutral-800">
             <div className="flex items-center gap-3 px-4 py-2 mb-2">
@@ -59,13 +58,19 @@ export default function AdminLayout() {
                 <p className="text-xs text-gray-500 dark:text-neutral-400">{user?.email}</p>
               </div>
             </div>
-            <Link
+            <NavLink
               to="/"
-              className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 hover:text-rose-600 dark:text-neutral-400 dark:hover:text-orange-400 transition-colors"
+              className={({ isActive: navActive }) =>
+                `flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
+                  navActive
+                    ? 'text-rose-600 dark:text-orange-400'
+                    : 'text-gray-600 hover:text-rose-600 dark:text-neutral-400 dark:hover:text-orange-400'
+                }`
+              }
             >
               <LogOut size={18} />
               Logout
-            </Link>
+            </NavLink>
           </div>
         </aside>
 
@@ -82,25 +87,25 @@ export default function AdminLayout() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 border-t border-rose-100 dark:border-neutral-800 z-50">
         <div className="flex items-center justify-around py-2">
           {adminNavItems.map((item) => (
-            <Link
+            <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
-              className={({ isActive }) =>
+              className={({ isActive: navActive }) =>
                 `flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg transition-colors duration-200 ${
-                  isActive
+                  navActive
                     ? 'text-rose-500 dark:text-orange-500'
                     : 'text-gray-400 dark:text-neutral-500'
                 }`
               }
             >
-              {({ isActive }) => (
+              {({ isActive: navActive }) => (
                 <>
-                  <item.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                  <item.icon size={20} strokeWidth={navActive ? 2.5 : 2} />
                   <span className="text-[10px] font-medium">{item.label}</span>
                 </>
               )}
-            </Link>
+            </NavLink>
           ))}
         </div>
       </nav>

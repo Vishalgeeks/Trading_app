@@ -14,6 +14,7 @@ type Config struct {
 	JWTSecret        string
 	FrontendURL      string
 	TokenExpiryHours int
+	UploadDir        string
 }
 
 func Load() (*Config, error) {
@@ -25,6 +26,7 @@ func Load() (*Config, error) {
 		JWTSecret:        os.Getenv("JWT_SECRET"),
 		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:5173"),
 		TokenExpiryHours: getEnvInt("TOKEN_EXPIRY_HOURS", 24),
+		UploadDir:        getEnv("UPLOAD_DIR", "./uploads"),
 	}
 
 	if cfg.DatabaseURL == "" {

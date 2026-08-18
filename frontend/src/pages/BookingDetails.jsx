@@ -1,23 +1,117 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { mockDesigns, mockBookings } from '../mockData';
+﻿import { useEffect, useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { bookingService } from '../services/bookingService';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { ArrowLeft, Clock, Calendar, MapPin } from 'lucide-react';
+import BookingStatus from '../components/bookings/BookingStatus';
+import { ArrowLeft, Clock, Calendar, MapPin, AlertCircle, XCircle, Loader2 } from 'lucide-react';
+
+function formatTime(time24) {
+  if (!time24) return '';
+  const [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
 
 export default function BookingDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const booking = mockBookings.find((b) => b.id === Number(id));
+  const { user } = useAuth();
+  const [booking, setBooking] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
-  if (!booking) {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBooking() {
+      setLoading(true);
+      setError('');
+
+      const result = await bookingService.getMyBooking(id);
+      if (cancelled) return;
+
+      if (result.error) {
+        if (result.status === 401) {
+          navigate('/login');
+          return;
+        }
+        if (result.status === 404) {
+          setError('Booking not found');
+        } else {
+          setError(result.message || 'Failed to load booking');
+        }
+        setLoading(false);
+        return;
+      }
+
+      setBooking(result.data);
+      setLoading(false);
+    }
+
+    loadBooking();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, navigate]);
+
+  const handleCancel = async () => {
+    if (!booking) return;
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel this booking for ${booking.designName} on ${booking.booking_date} at ${formatTime(booking.start_time)}?`
+    );
+    
+    if (!confirmed) return;
+
+    setCancelling(true);
+    setError('');
+
+    const result = await bookingService.cancelBooking(booking.id);
+    if (result.error) {
+      if (result.status === 409) {
+        setError('This booking cannot be cancelled: ' + (result.message || 'Invalid status'));
+      } else {
+        setError(result.message || 'Failed to cancel booking');
+      }
+      setCancelling(false);
+      return;
+    }
+
+    setBooking(result.data);
+    setCancelling(false);
+  };
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-500">Booking not found</p>
+      <div className="pb-24">
+        <div className="px-5 pt-6">
+          <div className="h-8 bg-gray-200 dark:bg-neutral-800 rounded w-48 mb-4 animate-pulse" />
+          <div className="h-64 bg-gray-200 dark:bg-neutral-800 rounded-2xl animate-pulse mb-4" />
+          <div className="h-48 bg-gray-200 dark:bg-neutral-800 rounded-2xl animate-pulse" />
+        </div>
       </div>
     );
   }
 
-  const design = mockDesigns.find((d) => d.id === booking.designId);
+  if (error || !booking) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center px-5">
+          <p className="text-gray-500 dark:text-neutral-400 mb-4">{error || 'Booking not found'}</p>
+          <Link to="/bookings" className="text-rose-500 text-sm font-medium">
+            Back to bookings
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const canCancel = booking.status === 'PENDING' || booking.status === 'CONFIRMED';
 
   return (
     <div className="pb-24">
@@ -36,56 +130,90 @@ export default function BookingDetails() {
       <div className="px-5 pt-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <Badge status={booking.status}>{booking.status}</Badge>
+            <BookingStatus status={booking.status} />
             <h1 className="text-xl font-bold text-gray-900 dark:text-white mt-2">
-              {design?.name || booking.designName}
+              {booking.designName}
             </h1>
             <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">
-              {design?.category || booking.designCategory}
+              {booking.design_category || booking.designCategory}
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-xl font-bold text-rose-600 dark:text-orange-400">₹{design?.price || 0}</p>
+        </div>
+
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-rose-100 dark:border-neutral-800 p-5 shadow-sm mb-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2 border-b border-rose-100 dark:border-neutral-800">
+              <div className="flex items-center gap-3 text-gray-600 dark:text-neutral-400">
+                <Calendar size={18} className="text-rose-500" />
+                <span className="font-medium text-gray-900 dark:text-white">{booking.booking_date}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-rose-100 dark:border-neutral-800">
+              <div className="flex items-center gap-3 text-gray-600 dark:text-neutral-400">
+                <Clock size={18} className="text-rose-500" />
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
+                </span>
+              </div>
+            </div>
+            {booking.notes && (
+              <div className="flex items-start justify-between py-2">
+                <div className="flex items-start gap-3 text-gray-600 dark:text-neutral-400">
+                  <MapPin size={18} className="text-rose-500 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-neutral-400">Notes</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{booking.notes}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3 text-gray-600 dark:text-neutral-400">
+                <span>🆔</span>
+                <span className="font-mono text-xs text-gray-500 dark:text-neutral-400">{booking.id}</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="bg-rose-50 dark:bg-neutral-800 rounded-2xl p-5 mb-6 border border-rose-100 dark:border-neutral-700">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Booking Details</h3>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Calendar size={18} className="text-rose-500 dark:text-orange-400" />
-              <div>
-                <p className="text-xs text-gray-500 dark:text-neutral-400">Date</p>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{booking.date}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Clock size={18} className="text-rose-500 dark:text-orange-400" />
-              <div>
-                <p className="text-xs text-gray-500 dark:text-neutral-400">Time</p>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {booking.startTime} - {booking.endTime}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <MapPin size={18} className="text-rose-500 dark:text-orange-400" />
-              <div>
-                <p className="text-xs text-gray-500 dark:text-neutral-400">Location</p>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Studio Address</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {booking.status === 'PENDING' && (
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => {}}>Cancel</Button>
-            <Button className="flex-1">Confirm</Button>
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-4 text-sm flex items-start gap-2">
+            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
-        {booking.status === 'CONFIRMED' && (
-          <Button variant="outline" className="w-full" onClick={() => {}}>Cancel Booking</Button>
+
+        {canCancel && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleCancel}
+            disabled={cancelling}
+          >
+            {cancelling ? (
+              <>
+                <Loader2 size={18} className="animate-spin mr-2" />
+                Cancelling...
+              </>
+            ) : (
+              <>
+                <XCircle size={18} className="mr-2" />
+                Cancel Booking
+              </>
+            )}
+          </Button>
+        )}
+
+        {!canCancel && booking.status === 'CANCELLED' && (
+          <div className="w-full text-center text-sm text-gray-500 dark:text-neutral-400 py-2">
+            This booking has been cancelled
+          </div>
+        )}
+
+        {!canCancel && booking.status === 'COMPLETED' && (
+          <div className="w-full text-center text-sm text-gray-500 dark:text-neutral-400 py-2">
+            This booking has been completed
+          </div>
         )}
       </div>
     </div>

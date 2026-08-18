@@ -13,16 +13,17 @@ function getAuthHeaders() {
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
 
+  const isFormData = options.body instanceof FormData;
   const config = {
     headers: {
-      'Content-Type': 'application/json',
+      ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...getAuthHeaders(),
       ...options.headers,
     },
     ...options,
   };
 
-  if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
+  if (config.body && typeof config.body === 'object' && !isFormData) {
     config.body = JSON.stringify(config.body);
   }
 

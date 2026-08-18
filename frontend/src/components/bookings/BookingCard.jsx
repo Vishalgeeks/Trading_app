@@ -1,4 +1,4 @@
-import Badge from '../ui/Badge';
+﻿import BookingStatus from './BookingStatus';
 
 export default function BookingCard({ booking, onPress }) {
   return (
@@ -15,18 +15,16 @@ export default function BookingCard({ booking, onPress }) {
             {booking.designCategory || booking.design_category}
           </p>
         </div>
-        <Badge status={booking.status}>
-          {booking.status}
-        </Badge>
+        <BookingStatus status={booking.status} />
       </div>
       <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-neutral-400">
         <div className="flex items-center gap-1">
           <span>📅</span>
-          <span>{booking.date || booking.booking_date}</span>
+          <span>{booking.booking_date || booking.date}</span>
         </div>
         <div className="flex items-center gap-1">
           <span>🕐</span>
-          <span>{booking.startTime || booking.start_time} - {booking.endTime || booking.end_time}</span>
+          <span>{booking.start_time || booking.startTime} - {booking.end_time || booking.endTime}</span>
         </div>
       </div>
     </div>

@@ -158,7 +158,62 @@ func (h *Handler) ListDesignsByCategory(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) AdminCreateDesign(w http.ResponseWriter, r *http.Request) {
-	h.CreateDesign(w, r)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid multipart form")
+		return
+	}
+
+	var req CreateDesignRequest
+	req.Name = r.FormValue("name")
+	req.Slug = r.FormValue("slug")
+	req.Description = strPtr(r.FormValue("description"))
+	req.Price = r.FormValue("price")
+	req.CategoryID = r.FormValue("category_id")
+
+	if durStr := r.FormValue("duration_minutes"); durStr != "" {
+		if d, err := strconv.Atoi(durStr); err == nil {
+			req.DurationMinutes = d
+		}
+	}
+
+	imageURL := r.FormValue("image_url")
+	if imageURL == "" {
+		if _, _, err := r.FormFile("image"); err == nil {
+			imageURL, err = SaveUploadedFile(r, "image", "./uploads")
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid image: "+err.Error())
+				return
+			}
+		}
+	}
+	req.ImageURL = imageURL
+
+	des, err := h.service.CreateDesign(r.Context(), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidName):
+			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, ErrInvalidSlug):
+			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, ErrInvalidImageURL):
+			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, ErrInvalidPrice):
+			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, ErrInvalidDuration):
+			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, ErrCategoryNotFound):
+			writeError(w, http.StatusNotFound, "category not found")
+		case errors.Is(err, ErrCategoryInactive):
+			writeError(w, http.StatusBadRequest, "category is not active")
+		case errors.Is(err, ErrDuplicateSlug):
+			writeError(w, http.StatusConflict, "design slug already exists")
+		default:
+			writeError(w, http.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, des.ToResponse())
 }
 
 func (h *Handler) AdminListDesigns(w http.ResponseWriter, r *http.Request) {
@@ -256,4 +311,11 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

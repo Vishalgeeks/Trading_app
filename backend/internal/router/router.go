@@ -9,6 +9,7 @@ import (
 	"mehndi-booking-backend/internal/booking"
 	"mehndi-booking-backend/internal/category"
 	"mehndi-booking-backend/internal/design"
+	"mehndi-booking-backend/internal/favorite"
 	"mehndi-booking-backend/internal/handler"
 	"mehndi-booking-backend/internal/middleware"
 	"mehndi-booking-backend/internal/notification"
@@ -23,7 +24,7 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	json.NewEncoder(w).Encode(v)
 }
 
-func NewRouter(userHandler *user.Handler, authHandler *auth.Handler, categoryHandler *category.Handler, designHandler *design.Handler, availabilityHandler *availability.Handler, bookingHandler *booking.Handler, slotHandler *booking.SlotHandler, notificationHandler *notification.Handler) *mux.Router {
+func NewRouter(userHandler *user.Handler, authHandler *auth.Handler, categoryHandler *category.Handler, designHandler *design.Handler, availabilityHandler *availability.Handler, bookingHandler *booking.Handler, slotHandler *booking.SlotHandler, notificationHandler *notification.Handler, favoriteHandler *favorite.Handler) *mux.Router {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/health", handler.Health).Methods("GET")
@@ -44,6 +45,10 @@ func NewRouter(userHandler *user.Handler, authHandler *auth.Handler, categoryHan
 	r.HandleFunc("/api/designs/{id}", designHandler.GetDesign).Methods("GET")
 	r.HandleFunc("/api/designs/category/{category_id}", designHandler.ListDesignsByCategory).Methods("GET")
 	r.HandleFunc("/api/designs/search", designHandler.SearchDesigns).Methods("GET")
+
+	r.HandleFunc("/api/favorites", favoriteHandler.ListFavorites).Methods("GET")
+	r.HandleFunc("/api/favorites", favoriteHandler.CreateFavorite).Methods("POST")
+	r.HandleFunc("/api/favorites/delete", favoriteHandler.DeleteFavorite).Methods("DELETE")
 
 	r.HandleFunc("/api/availability/slots", slotHandler.GetAvailableSlots).Methods("GET")
 
@@ -77,9 +82,13 @@ func NewRouter(userHandler *user.Handler, authHandler *auth.Handler, categoryHan
 	r.Handle("/api/admin/bookings/upcoming", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminUpcomingBookings)))).Methods("GET")
 	r.Handle("/api/admin/bookings/history", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminBookingHistory)))).Methods("GET")
 	r.Handle("/api/admin/bookings/stats", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminBookingStats)))).Methods("GET")
+	r.Handle("/api/admin/bookings/{id}", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(bookingHandler.AdminCancelBooking)))).Methods("DELETE")
 
-	cors := middleware.NewCORS()
-	r.Use(cors.Handler)
+	r.Handle("/api/admin/availability", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(availabilityHandler.ListAvailability)))).Methods("GET")
+	r.HandleFunc("/api/admin/availability", availabilityHandler.CreateAvailability).Methods("POST")
+	r.Handle("/api/admin/availability", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(availabilityHandler.GetAvailability)))).Methods("GET")
+	r.Handle("/api/admin/availability", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(availabilityHandler.UpdateAvailability)))).Methods("PATCH")
+	r.Handle("/api/admin/availability", middleware.RequireAuth(middleware.RequireRole("ADMIN")(http.HandlerFunc(availabilityHandler.DeleteAvailability)))).Methods("DELETE")
 
 	return r
 }
