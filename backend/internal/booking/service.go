@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"mehndi-booking-backend/internal/availability"
+	"mehndi-booking-backend/internal/design"
 	"mehndi-booking-backend/internal/notification"
 	"mehndi-booking-backend/internal/user"
 )
@@ -49,19 +50,25 @@ type AvailabilityRepository interface {
 	GetAvailabilityForDay(ctx context.Context, dayOfWeek int) ([]availability.Availability, error)
 }
 
+type DesignGetter interface {
+	GetDesignByID(ctx context.Context, id string) (design.Design, error)
+}
+
 type Service struct {
 	bookingRepo      BookingRepository
 	availabilityRepo AvailabilityRepository
 	notificationSvc  notification.NotificationRepository
 	userRepo         notification.UserRepository
+	designRepo       DesignGetter
 }
 
-func NewService(bookingRepo BookingRepository, availabilityRepo AvailabilityRepository, notificationSvc notification.NotificationRepository, userRepo notification.UserRepository) *Service {
+func NewService(bookingRepo BookingRepository, availabilityRepo AvailabilityRepository, notificationSvc notification.NotificationRepository, userRepo notification.UserRepository, designRepo DesignGetter) *Service {
 	return &Service{
 		bookingRepo:      bookingRepo,
 		availabilityRepo: availabilityRepo,
 		notificationSvc:  notificationSvc,
 		userRepo:         userRepo,
+		designRepo:       designRepo,
 	}
 }
 
@@ -108,7 +115,18 @@ func (s *Service) CreateBooking(ctx context.Context, userID string, req CreateBo
 		return Booking{}, fmt.Errorf("selected time is outside admin availability")
 	}
 
-	endTime := startTime.Add(2 * time.Hour)
+	duration := 2 * time.Hour
+	if s.designRepo != nil {
+		design, err := s.designRepo.GetDesignByID(ctx, req.DesignID)
+		if err == nil {
+			duration = time.Duration(design.DurationMinutes) * time.Minute
+			if duration <= 0 {
+				duration = 2 * time.Hour
+			}
+		}
+	}
+
+	endTime := startTime.Add(duration)
 
 	if endTime.Format("15:04") > matchedAvail.EndTime.Format("15:04") {
 		return Booking{}, fmt.Errorf("booking exceeds availability window")
@@ -609,17 +627,27 @@ func (s *Service) CalculateAvailableSlots(ctx context.Context, designID string, 
 		return nil, fmt.Errorf("no availability for selected date")
 	}
 
+	duration := 2 * time.Hour
+	if s.designRepo != nil {
+		design, err := s.designRepo.GetDesignByID(ctx, designID)
+		if err == nil {
+			duration = time.Duration(design.DurationMinutes) * time.Minute
+			if duration <= 0 {
+				duration = 2 * time.Hour
+			}
+		}
+	}
 	var allSlots []Slot
 
 	for _, av := range availabilities {
-		slots := generateSlotsForAvailability(av, designID, bookingDateParsed, s.bookingRepo)
+		slots := generateSlotsForAvailability(av, designID, bookingDateParsed, s.bookingRepo, duration)
 		allSlots = append(allSlots, slots...)
 	}
 
 	return allSlots, nil
 }
 
-func generateSlotsForAvailability(av availability.Availability, designID string, bookingDate time.Time, bookingRepo BookingRepository) []Slot {
+func generateSlotsForAvailability(av availability.Availability, designID string, bookingDate time.Time, bookingRepo BookingRepository, duration time.Duration) []Slot {
 	var slots []Slot
 
 	startTime, _ := time.Parse("15:04", av.StartTime.Format("15:04"))
@@ -628,8 +656,8 @@ func generateSlotsForAvailability(av availability.Availability, designID string,
 	interval := 30 * time.Minute
 	current := startTime
 
-	for current.Add(2*time.Hour).Before(endTime) || current.Add(2*time.Hour).Equal(endTime) {
-		slotEnd := current.Add(2 * time.Hour)
+	for current.Add(duration).Before(endTime) || current.Add(duration).Equal(endTime) {
+		slotEnd := current.Add(duration)
 
 		hasOverlap, _ := bookingRepo.CheckBookingOverlap(
 			context.Background(),

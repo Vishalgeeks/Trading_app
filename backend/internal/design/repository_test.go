@@ -85,7 +85,6 @@ func TestRepository_CreateDesign(t *testing.T) {
 		CategoryID:      cat.ID,
 		Name:            "Bridal Full Hand-test",
 		Slug:            "design-test-" + uniqueSlug(""),
-		Description:     strPtr("Full hand bridal design"),
 		ImageURL:        "https://example.com/design.jpg",
 		Price:           "2500.00",
 		DurationMinutes: 180,
@@ -304,11 +303,4 @@ func TestRepository_DeactivateDesign(t *testing.T) {
 	found, err := repo.GetDesignByID(ctx, created.ID)
 	require.NoError(t, err)
 	require.False(t, found.IsActive)
-}
-
-func strPtr(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }

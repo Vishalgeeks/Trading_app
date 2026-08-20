@@ -27,7 +27,7 @@ export default function Register() {
       return;
     }
 
-    navigate('/bookings');
+    navigate('/');
   };
 
   return (

@@ -1,4 +1,4 @@
-﻿import { api } from './api';
+import { api } from './api';
 
 function mapBooking(raw) {
   if (!raw) return null;
@@ -54,6 +54,20 @@ function mapAdminBooking(raw) {
 
 export const bookingService = {
   // Client booking endpoints
+  async createBooking(data) {
+    const payload = {
+      design_id: data.designId || data.design_id,
+      booking_date: data.bookingDate || data.booking_date,
+      start_time: data.startTime || data.start_time,
+      notes: data.notes || '',
+    };
+    const result = await api.post('/bookings', payload);
+    if (result.error) {
+      return result;
+    }
+    return { error: false, data: mapBooking(result.data) };
+  },
+
   async getMyBookings(params = {}) {
     const query = new URLSearchParams();
     if (params.status) query.append('status', params.status);

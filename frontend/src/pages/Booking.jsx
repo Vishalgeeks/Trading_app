@@ -174,7 +174,7 @@ export default function Booking() {
     );
   }
 
-  if (bookingResult?.type === 'success') {
+  if (bookingResult?.type === 'success' && bookingResult.data) {
     const booking = bookingResult.data;
     return (
       <div className="pb-24">
@@ -222,6 +222,35 @@ export default function Booking() {
             </div>
           </div>
 
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => navigate('/bookings')}>
+              View Bookings
+            </Button>
+            <Button className="flex-1" onClick={() => navigate('/browse')}>
+              Browse More
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (bookingResult?.type === 'success' && !bookingResult.data) {
+    return (
+      <div className="pb-24">
+        <div className="px-5 pt-6">
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle size={32} className="text-green-600 dark:text-green-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Booking Confirmed</h2>
+            <p className="text-sm text-gray-500 dark:text-neutral-400 mb-6">
+              Your booking has been created successfully.
+            </p>
+          </div>
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-rose-100 dark:border-neutral-800 p-5 shadow-sm mb-6">
+            <p className="text-sm text-gray-500 dark:text-neutral-400">Booking created, but details could not be loaded.</p>
+          </div>
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => navigate('/bookings')}>
               View Bookings

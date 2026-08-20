@@ -146,7 +146,7 @@ func main() {
 	notificationRepo := notification.NewRepository(pool)
 	notificationService := notification.NewService(notificationRepo, userRepo)
 
-	bookingService := booking.NewService(bookingRepo, availabilityRepo, notificationRepo, userRepo)
+	bookingService := booking.NewService(bookingRepo, availabilityRepo, notificationRepo, userRepo, designRepo)
 	bookingHandler := booking.NewHandler(bookingService)
 	slotHandler := booking.NewSlotHandler(bookingService)
 

@@ -8,6 +8,7 @@ import {
   Heart,
   Calendar,
   Shield,
+  Settings,
   LogOut,
 } from 'lucide-react';
 
@@ -59,7 +60,7 @@ export default function Profile() {
         <div className="px-5 pt-12 pb-8">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl border-2 border-white/30">
-              👤
+              ??
             </div>
             <div>
               <h1 className="text-xl font-bold">{profileUser?.name || user?.name || 'Guest User'}</h1>

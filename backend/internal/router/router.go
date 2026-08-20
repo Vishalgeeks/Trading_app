@@ -53,7 +53,7 @@ func NewRouter(userHandler *user.Handler, authHandler *auth.Handler, categoryHan
 	r.HandleFunc("/api/availability/slots", slotHandler.GetAvailableSlots).Methods("GET")
 
 	r.Handle("/api/bookings", middleware.RequireAuth(http.HandlerFunc(bookingHandler.ListBookings))).Methods("GET")
-	r.HandleFunc("/api/bookings", bookingHandler.CreateBooking).Methods("POST")
+	r.Handle("/api/bookings", middleware.RequireAuth(http.HandlerFunc(bookingHandler.CreateBooking))).Methods("POST")
 	r.Handle("/api/bookings/{id}", middleware.RequireAuth(http.HandlerFunc(bookingHandler.GetBooking))).Methods("GET")
 	r.Handle("/api/bookings/{id}/cancel", middleware.RequireAuth(http.HandlerFunc(bookingHandler.CancelBooking))).Methods("PATCH")
 	r.Handle("/api/bookings/upcoming", middleware.RequireAuth(http.HandlerFunc(bookingHandler.ListUpcomingBookings))).Methods("GET")

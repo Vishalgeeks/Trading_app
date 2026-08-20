@@ -196,7 +196,7 @@ func TestRepository_CancelBooking(t *testing.T) {
 func TestService_CreateBooking_Valid(t *testing.T) {
 	bookingRepo, avRepo := setupBookingRepo(t)
 	_ = createTestAvailability(t, avRepo, "2026-08-26")
-	svc := NewService(bookingRepo, avRepo, nil, nil)
+	svc := NewService(bookingRepo, avRepo, nil, nil, nil)
 
 	booking, err := svc.CreateBooking(ctx, "00000000-0000-0000-0000-000000000001", CreateBookingRequest{
 		DesignID:    "00000000-0000-0000-0000-000000000002",
@@ -210,7 +210,7 @@ func TestService_CreateBooking_Valid(t *testing.T) {
 func TestService_CreateBooking_Overlap(t *testing.T) {
 	bookingRepo, avRepo := setupBookingRepo(t)
 	_ = createTestAvailability(t, avRepo, "2026-08-27")
-	svc := NewService(bookingRepo, avRepo, nil, nil)
+	svc := NewService(bookingRepo, avRepo, nil, nil, nil)
 
 	_, err := svc.CreateBooking(ctx, "00000000-0000-0000-0000-000000000001", CreateBookingRequest{
 		DesignID:    "00000000-0000-0000-0000-000000000002",
@@ -230,7 +230,7 @@ func TestService_CreateBooking_Overlap(t *testing.T) {
 func TestService_CancelBooking_Valid(t *testing.T) {
 	bookingRepo, avRepo := setupBookingRepo(t)
 	_ = createTestAvailability(t, avRepo, "2026-08-28")
-	svc := NewService(bookingRepo, avRepo, nil, nil)
+	svc := NewService(bookingRepo, avRepo, nil, nil, nil)
 
 	booking, err := svc.CreateBooking(ctx, "00000000-0000-0000-0000-000000000001", CreateBookingRequest{
 		DesignID:    "00000000-0000-0000-0000-000000000002",
@@ -247,7 +247,7 @@ func TestService_CancelBooking_Valid(t *testing.T) {
 func TestService_UpdateBookingStatus_Valid(t *testing.T) {
 	bookingRepo, avRepo := setupBookingRepo(t)
 	_ = createTestAvailability(t, avRepo, "2026-08-29")
-	svc := NewService(bookingRepo, avRepo, nil, nil)
+	svc := NewService(bookingRepo, avRepo, nil, nil, nil)
 
 	booking, err := svc.CreateBooking(ctx, "00000000-0000-0000-0000-000000000001", CreateBookingRequest{
 		DesignID:    "00000000-0000-0000-0000-000000000002",
@@ -264,7 +264,7 @@ func TestService_UpdateBookingStatus_Valid(t *testing.T) {
 func TestConcurrentBooking(t *testing.T) {
 	bookingRepo, avRepo := setupBookingRepo(t)
 	_ = createTestAvailability(t, avRepo, "2026-08-30")
-	svc := NewService(bookingRepo, avRepo, nil, nil)
+	svc := NewService(bookingRepo, avRepo, nil, nil, nil)
 
 	results := make(chan error, 2)
 	for i := 0; i < 2; i++ {
